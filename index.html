@@ -6,8 +6,14 @@
   <title>Rare Spirits — Whiskey Trading Co.</title>
   <meta name="theme-color" content="#0d0a07">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="manifest.json">
-  <style>html, body, #root { margin: 0; padding: 0; min-height: 100vh; background: #0d0a07; } body { overflow-x: hidden; }</style>
+  <style>
+    html, body, #root { margin: 0; padding: 0; min-height: 100vh; background: #0d0a07; }
+    body { overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
+    input[type="range"] { height: 32px; }
+    button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  </style>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -445,7 +451,7 @@ function BottleCard({ bottle, showRarity = false, onClick, yearEstimate = null, 
     ? rarityDef?.gradient ? { borderImage: `${rarityDef.gradient} 1`, borderWidth: "3px", borderStyle: "solid" } : { border: `3px solid ${rarityDef?.color || "#6B7280"}` }
     : { border: "2px solid #3a3028" };
   return (
-    <div onClick={onClick} style={{ ...borderStyle, borderRadius: "12px", background: "linear-gradient(145deg, #3d3229, #4a3f33)", padding: "16px", cursor: onClick ? "pointer" : "default", width: "280px", transition: "transform 0.2s, box-shadow 0.2s", boxShadow: "0 4px 12px rgba(0,0,0,0.4)", flexShrink: 0 }}
+    <div onClick={onClick} style={{ ...borderStyle, borderRadius: "12px", background: "linear-gradient(145deg, #3d3229, #4a3f33)", padding: "16px", cursor: onClick ? "pointer" : "default", width: "280px", maxWidth: "90vw", transition: "transform 0.2s, box-shadow 0.2s", boxShadow: "0 4px 12px rgba(0,0,0,0.4)", flexShrink: 0 }}
       onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.6)"; }}
       onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.4)"; }}>
       <div style={{ display: "flex", justifyContent: "center", marginBottom: "12px", background: "radial-gradient(ellipse at center, rgba(255,248,230,0.08) 0%, transparent 70%)", borderRadius: "8px", padding: "8px 0" }}>
@@ -1190,7 +1196,258 @@ function WhiskeyGame() {
   const [customerOffer, setCustomerOffer] = useState(0); // their current counter
   const [negResult, setNegResult] = useState(null); // null | "accepted" | "rejected" | "countered" | "walked"
   const [negHistory, setNegHistory] = useState([]);
-  const [yearQuestioned, setYearQuestioned] = useState(false); // per-customer flag // [{who, amount, text}]
+  
+  const [preTacticUsed, setPreTacticUsed] = useState(null); // null or tactic id
+  const [midTacticUsed, setMidTacticUsed] = useState(null);
+  const [tacticResult, setTacticResult] = useState(null); // { text, effect } shown briefly
+  const [showTacticsMenu, setShowTacticsMenu] = useState(false);
+
+  // ---- NEGOTIATION TACTICS ----
+  // Each tactic has effects per personality id: "great" | "good" | "neutral" | "bad" | "terrible"
+  const TACTICS = {
+    compliment: {
+      id: "compliment", label: "Compliment",
+      sellerText: "That's a really nice bottle you've got there.",
+      buyerText: "You clearly have excellent taste.",
+      effects: {
+        desperate: "good", casual: "great", shrewd: "neutral", collector: "good", impatient: "neutral", friendly: "great",
+      },
+      responses: {
+        great: { seller: ['"Oh, you think so? Maybe I should hold onto it... nah, just kidding. Let\'s make a deal."', '"Aw, thanks! That means a lot coming from someone in the business."'], buyer: ['"You really think so? Well then, I trust your pricing."', '"That\'s kind of you to say! I\'m happy to pay fairly for quality."'] },
+        good: { seller: ['"Thanks, I appreciate that."', '"Yeah, it\'s a decent one, isn\'t it?"'], buyer: ['"Thanks! I do try to find the good stuff."', '"I appreciate that."'] },
+        neutral: { seller: ['"Sure. So what\'s your offer?"', '"Thanks. Anyway, about the price..."'], buyer: ['"Mhm. So what are you asking?"', '"Flattery aside, what\'s the number?"'] },
+        bad: { seller: ['"I don\'t need compliments, I need a fair price."', '"Save the charm. What\'ll you pay?"'], buyer: ['"I know what I like. Just name your price."'] },
+      },
+      // Effect on negotiation: modifies askingPrice (seller) or maxPay (buyer)
+      multipliers: { great: 0.85, good: 0.92, neutral: 1.0, bad: 1.05 },
+    },
+    flaw: {
+      id: "flaw", label: "Point out flaw",
+      sellerText: null, // dynamic based on bottle
+      buyerText: null,
+      effects: {
+        desperate: "great", casual: "good", shrewd: "bad", collector: "terrible", impatient: "neutral", friendly: "good",
+      },
+      responses: {
+        great: { seller: ['"Oh... I didn\'t notice that. Maybe it\'s not worth as much as I thought."', '"Really? Hmm, I guess I should lower my expectations."'], buyer: [] },
+        good: { seller: ['"Fair point, I suppose."', '"Yeah, you might be right about that."'], buyer: [] },
+        neutral: { seller: ['"I mean, it is what it is."', '"That doesn\'t change much for me."'], buyer: ['"Noted, but I still want it."'] },
+        bad: { seller: ['"I\'m well aware of what this bottle is. Don\'t try to lowball me."', '"Nice try, but I know the market."'], buyer: ['"Are you trying to talk me out of buying? Because it\'s working."'] },
+        terrible: { seller: ['"That\'s insulting. I think we\'re done here."'], buyer: ['"You know what, I don\'t think I want to do business with you."'] },
+      },
+      multipliers: { great: 0.78, good: 0.88, neutral: 1.0, bad: 1.08, terrible: null }, // null = walk away
+    },
+    compete: {
+      id: "compete", label: "Mention competition",
+      sellerText: "I've seen bottles like this go for less at other shops.",
+      buyerText: "I've had some interest from another buyer on this one.",
+      effects: {
+        desperate: "great", casual: "good", shrewd: "bad", collector: "neutral", impatient: "good", friendly: "neutral",
+      },
+      responses: {
+        great: { seller: ['"Oh, really? Well, I just want to get this done. How about a better price?"', '"I don\'t have time to shop around. I\'ll come down."'], buyer: ['"Another buyer? I better not lose this. I\'ll pay more."', '"Don\'t sell it out from under me!"'] },
+        good: { seller: ['"Fair enough, I guess the market is what it is."'], buyer: ['"Alright, maybe I can stretch my budget a bit."'] },
+        neutral: { seller: ['"I\'ll keep that in mind."', '"Maybe so, but I know what I want for this."'], buyer: ['"Good for them. I know what I\'m willing to pay."'] },
+        bad: { seller: ['"Then go buy it there. I know my price."', '"I doubt that. This is worth what I\'m asking."'], buyer: ['"Don\'t try to play games with me."'] },
+      },
+      multipliers: { great: 0.80, good: 0.90, neutral: 1.0, bad: 1.1 },
+    },
+    knowledge: {
+      id: "knowledge", label: "Share expertise",
+      sellerText: null, // dynamic
+      buyerText: null,
+      effects: {
+        desperate: "great", casual: "great", shrewd: "neutral", collector: "good", impatient: "neutral", friendly: "good",
+      },
+      responses: {
+        great: { seller: ['"Wow, you really know your stuff. I trust your judgment on this."', '"I had no idea. What do you think is fair?"'], buyer: ['"That\'s really interesting — you clearly know what you\'re talking about."', '"I appreciate the expertise. That justifies the price."'] },
+        good: { seller: ['"Good to know. I respect that."'], buyer: ['"That\'s helpful context, thanks."'] },
+        neutral: { seller: ['"I know a thing or two myself."', '"Interesting, but I have my price."'], buyer: ['"Sure, but the number is the number."'] },
+      },
+      multipliers: { great: 0.82, good: 0.90, neutral: 1.0 },
+      requiresSkill: "industryKnowledge", minLevel: 1,
+    },
+    askYear: {
+      id: "askYear", label: "Ask about release year",
+      sellerText: "Do you happen to know what year this was released?",
+      buyerText: null, // only for sellers
+      sellerOnly: true, // only shows when buying from sellers
+      requiresUnknownYear: true, // only shows when bottle year is unknown
+      effects: {
+        desperate: "great", casual: "great", shrewd: "bad", collector: "neutral", impatient: "good", friendly: "good",
+      },
+      responses: {
+        great: { seller: ['"...I don\'t really know the year on this. I guess I could go a bit lower."', '"Honestly, no idea. Maybe that means it\'s not worth as much?"', '"Not a clue. I just found it in a box. I\'ll knock some off."'] },
+        good: { seller: ['"I\'m not totally sure on the year. I could come down a little."', '"Yeah, I don\'t have the year. Fair point."'] },
+        neutral: { seller: ['"No, but I know what I paid for it."', '"Year or not, this is a quality bottle."'] },
+        bad: { seller: ['"I know exactly what this is worth, year or no year. Actually, let me reconsider my price."', '"Trying to use that against me? I\'ve done my homework."'] },
+      },
+      multipliers: { great: 0.72, good: 0.88, neutral: 1.0, bad: 1.10 },
+    },
+  };
+
+  const getFlawText = useCallback((bottle, forBuyer) => {
+    if (forBuyer) return "I should mention, the provenance on this one is a bit uncertain.";
+    const flaws = [];
+    if (!bottle.yearKnown) flaws.push("no year on the label");
+    if (bottle.ageDisplay === "Unstated") flaws.push("no age statement");
+    if (bottle.proof <= 90) flaws.push("pretty standard proof");
+    if (bottle.modifiers.length === 0) flaws.push("no special finishes or releases");
+    if (flaws.length === 0) flaws.push("a few shelf marks on the bottle");
+    return `I notice there's ${flaws[0]}${flaws.length > 1 ? ` and ${flaws[1]}` : ""}.`;
+  }, []);
+
+  const getKnowledgeText = useCallback((bottle, forBuyer) => {
+    const ikLevel = playerSkills.industryKnowledge;
+    if (forBuyer) {
+      if (ikLevel >= 3) return `This expression from ${bottle.brandName} has been getting attention at auction lately.`;
+      return `${bottle.brandName} has a solid reputation for their ${bottle.typeName}.`;
+    }
+    if (ikLevel >= 4) return `Based on what I know about ${bottle.brandName}'s releases, I'd say the market is a bit softer than you might think.`;
+    if (ikLevel >= 2) return `I've seen a few ${bottle.brandName} bottles come through recently. The market on these is fairly well-established.`;
+    return `I know a thing or two about ${bottle.typeName} from this region.`;
+  }, [playerSkills]);
+
+  // ---- CODEX TRACKING ----
+  const trackBottleInCodex = useCallback((bottle) => {
+    if (!bottle) return;
+    const brand = bottle.brandName;
+    const modKey = bottle.modifiers.length > 0 ? bottle.modifiers.sort().join(" ") + " " : "";
+    const variantKey = `${modKey}${bottle.typeName}`;
+    setCodex(prev => {
+      const next = { ...prev };
+      if (!next[brand]) next[brand] = {};
+      const existing = next[brand][variantKey];
+      if (existing) {
+        if (bottle.yearKnown) {
+          existing.minYear = Math.min(existing.minYear ?? bottle.year, bottle.year);
+          existing.maxYear = Math.max(existing.maxYear ?? bottle.year, bottle.year);
+        }
+        existing.encounters = (existing.encounters || 1) + 1;
+        existing.lastProof = bottle.proof;
+        existing.lastAge = bottle.age;
+        existing.lastMashbill = bottle.mashbill;
+      } else {
+        next[brand][variantKey] = {
+          brandName: brand, typeName: bottle.typeName, modifiers: [...bottle.modifiers], variantKey,
+          displayName: `${brand} ${variantKey}`,
+          minYear: bottle.yearKnown ? bottle.year : null, maxYear: bottle.yearKnown ? bottle.year : null,
+          lastProof: bottle.proof, lastAge: bottle.age, lastMashbill: bottle.mashbill, region: bottle.region, encounters: 1,
+          bottleShapeIdx: bottle.bottleShapeIdx, bottleColor: bottle.bottleColor, capColor: bottle.capColor, labelColor: bottle.labelColor, labelAccent: bottle.labelAccent,
+        };
+      }
+      return next;
+    });
+  }, []);
+
+  const trackPriceInCodex = useCallback((bottle, dealType, price) => {
+    if (!bottle) return;
+    const brand = bottle.brandName;
+    const modKey = bottle.modifiers.length > 0 ? bottle.modifiers.sort().join(" ") + " " : "";
+    const variantKey = `${modKey}${bottle.typeName}`;
+    const yearKey = bottle.yearKnown ? String(bottle.year) : "unknown";
+    setCodex(prev => {
+      const next = { ...prev };
+      if (!next[brand] || !next[brand][variantKey]) return next;
+      const entry = next[brand][variantKey];
+      if (!entry.priceHistory) entry.priceHistory = {};
+      if (!entry.priceHistory[yearKey]) entry.priceHistory[yearKey] = {};
+      const yh = entry.priceHistory[yearKey];
+      if (dealType === "buy") { yh.minBuy = yh.minBuy != null ? Math.min(yh.minBuy, price) : price; yh.maxBuy = yh.maxBuy != null ? Math.max(yh.maxBuy, price) : price; }
+      else { yh.minSell = yh.minSell != null ? Math.min(yh.minSell, price) : price; yh.maxSell = yh.maxSell != null ? Math.max(yh.maxSell, price) : price; }
+      return next;
+    });
+  }, []);
+
+  const advanceToNextCustomer = useCallback(() => {
+    const nextIdx = customerIndex + 1;
+    setNegotiating(false); setNegResult(null); setSelectedSellBottle(null); setPreTacticUsed(null); setMidTacticUsed(null); setTacticResult(null); setShowTacticsMenu(false);
+    if (nextIdx < customerQueue.length) {
+      const nextCustomer = customerQueue[nextIdx];
+      setCustomerIndex(nextIdx);
+      setCurrentCustomer(nextCustomer);
+      if (nextCustomer.type === "seller" && nextCustomer.bottle) trackBottleInCodex(nextCustomer.bottle);
+      audio.playSfx("customerEnter");
+    } else {
+      setCurrentCustomer(null);
+    }
+  }, [customerIndex, customerQueue, audio, trackBottleInCodex]);
+
+  // Calculate buyer's offer for a specific bottle (instead of using the average-based pre-computed one)
+  const getOfferForBottle = useCallback((customer, bottle) => {
+    if (!customer || !bottle || customer.type !== "buyer") return { offer: 0, maxPay: 0 };
+    const p = customer.personality;
+    const valueBasis = p.knowledge === "high" ? (bottle.trueValue || bottle.value) : bottle.value;
+    const budget = Math.round(valueBasis * (customer.budgetRatio || 1));
+    const maxPay = Math.round(budget * (1 + p.flexibility * 0.5));
+    const offer = Math.round(budget * (customer.offerRatio || 0.6));
+    return { offer, maxPay, budget };
+  }, []);
+
+  const applyTactic = useCallback((tacticId, phase) => {
+    if (!currentCustomer) return;
+    const tactic = TACTICS[tacticId];
+    if (!tactic) return;
+    if (tactic.requiresSkill && (playerSkills[tactic.requiresSkill] || 0) < tactic.minLevel) return;
+
+    const c = currentCustomer;
+    const p = c.personality;
+    const effect = tactic.effects[p.id] || "neutral";
+    const mult = tactic.multipliers[effect];
+    const isSeller = c.type === "seller";
+    const bottle = isSeller ? c.bottle : inventory.find(b => b.id === selectedSellBottle);
+
+    // Get the appropriate text
+    let playerText;
+    if (tacticId === "flaw") playerText = getFlawText(bottle, !isSeller);
+    else if (tacticId === "knowledge") playerText = getKnowledgeText(bottle, !isSeller);
+    else playerText = isSeller ? tactic.sellerText : tactic.buyerText;
+
+    // Get response
+    const responsePool = tactic.responses[effect]?.[isSeller ? "seller" : "buyer"] || tactic.responses[effect]?.seller || [`"..."`];
+    const response = responsePool[Math.floor(Math.random() * responsePool.length)];
+
+    if (phase === "pre") setPreTacticUsed(tacticId);
+    else setMidTacticUsed(tacticId);
+
+    // Handle terrible (walk away)
+    if (mult === null) {
+      setTacticResult({ text: response, effect: "terrible" });
+      if (negotiating) {
+        setNegResult("walked");
+        setNegHistory(prev => [...prev, { who: "player", amount: null, text: playerText }, { who: "customer", amount: null, text: response }]);
+      } else {
+        // Walk away before negotiation even starts
+        setTimeout(() => { advanceToNextCustomer(); }, 1500);
+      }
+      return;
+    }
+
+    setTacticResult({ text: response, effect });
+
+    // Apply effect
+    if (isSeller) {
+      const newAsk = Math.max(Math.round(c.askingPrice * mult), c.minAccept);
+      const newMin = Math.round(c.minAccept * (mult < 1 ? mult * 0.9 + 0.1 : mult)); // min drops less aggressively
+      setCurrentCustomer(prev => ({ ...prev, askingPrice: newAsk, minAccept: Math.min(newMin, newAsk) }));
+      if (negotiating) {
+        setCustomerOffer(newAsk);
+        setNegHistory(prev => [...prev, { who: "player", amount: null, text: playerText }, { who: "customer", amount: newAsk, text: `${response} $${newAsk.toLocaleString()}.` }]);
+      }
+    } else {
+      const newMax = Math.round(c.maxPay * (mult < 1 ? 1 + (1 - mult) : mult)); // inverse for selling — lower mult = buyer pays MORE
+      const newOffer = Math.round(c.openingOffer * (mult < 1 ? 1 + (1 - mult) * 0.5 : mult));
+      setCurrentCustomer(prev => ({ ...prev, maxPay: newMax, openingOffer: Math.min(newOffer, newMax) }));
+      if (negotiating) {
+        setCustomerOffer(newOffer);
+        setNegHistory(prev => [...prev, { who: "player", amount: null, text: playerText }, { who: "customer", amount: newOffer, text: `${response} $${newOffer.toLocaleString()}.` }]);
+      }
+    }
+
+    // Clear result after a moment
+    setShowTacticsMenu(false);
+    setTimeout(() => setTacticResult(null), 2500);
+  }, [currentCustomer, negotiating, inventory, selectedSellBottle, playerSkills, getFlawText, getKnowledgeText, advanceToNextCustomer]); // per-customer flag // [{who, amount, text}]
 
   const FIRST_NAMES = ["James","Mary","Robert","Linda","Michael","Sarah","William","Karen","David","Lisa","Thomas","Nancy","John","Betty","Daniel","Sandra","Paul","Ruth","Mark","Helen","George","Laura","Frank","Anna","Ed","Carol","Tony","Marie","Victor","Grace"];
   const LAST_NAMES = ["Smith","Johnson","Brown","Davis","Wilson","Moore","Taylor","Anderson","Thomas","Harris","Martin","Garcia","Lee","Clark","Lewis","Hall","Young","King","Wright","Hill","Scott","Green","Baker","Adams","Reed","Cook","Morgan","Bell","Ross","Wood"];
@@ -1286,12 +1543,14 @@ function WhiskeyGame() {
         const valueBasis = personality.knowledge === "high" ? avgTrueValue : avgValue;
         // Hot tip: buyer pays 2-3x
         const hotTipMult = event?.type === "hotTip" && rng() < 0.35 ? 2 + rng() : 1;
-        const budget = Math.round(valueBasis * (0.7 + rng() * 0.8) * hotTipMult);
+        const budgetRatio = (0.7 + rng() * 0.8) * hotTipMult;
+        const offerRatio = 0.5 + rng() * 0.3;
+        const budget = Math.round(valueBasis * budgetRatio);
         const maxPay = Math.round(budget * (1 + personality.flexibility * 0.5));
-        const openingOffer = Math.round(budget * (0.5 + rng() * 0.3));
+        const openingOffer = Math.round(budget * offerRatio);
         const openLine = personality.buyerLines[Math.floor(rng() * personality.buyerLines.length)];
         const isHotTipBuyer = hotTipMult > 1;
-        queue.push({ type: "buyer", name, personality, descriptor, request: request.text, filter: request.filter, budget, maxPay, openingOffer, openLine, knowsYear: personality.knowledge === "high", isHotTipBuyer });
+        queue.push({ type: "buyer", name, personality, descriptor, request: request.text, filter: request.filter, budget, maxPay, openingOffer, openLine, knowsYear: personality.knowledge === "high", isHotTipBuyer, budgetRatio, offerRatio });
       }
     }
     return { queue, event };
@@ -1309,88 +1568,14 @@ function WhiskeyGame() {
       setPlayerOffer(Math.round(customer.askingPrice * 0.6));
       setNegHistory([{ who: "customer", amount: customer.askingPrice, text: `"I'm looking to get $${customer.askingPrice.toLocaleString()} for this."` }]);
     } else {
-      setCustomerOffer(customer.openingOffer);
-      // Default slider at ~130% of their opening offer
-      setPlayerOffer(Math.round(customer.openingOffer * 1.3));
-      setNegHistory([{ who: "customer", amount: customer.openingOffer, text: `"I'd offer $${customer.openingOffer.toLocaleString()} for that."` }]);
+      const bottle = inventory.find(b => b.id === selectedSellBottle);
+      const { offer, maxPay, budget } = getOfferForBottle(customer, bottle);
+      setCustomerOffer(offer);
+      setPlayerOffer(Math.round(offer * 1.3));
+      setCurrentCustomer(prev => ({ ...prev, openingOffer: offer, maxPay, budget }));
+      setNegHistory([{ who: "customer", amount: offer, text: `"I'd offer $${offer.toLocaleString()} for that."` }]);
     }
-  }, [inventory, selectedSellBottle]);
-
-  // ---- CODEX TRACKING ----
-  const trackBottleInCodex = useCallback((bottle) => {
-    if (!bottle) return;
-    const brand = bottle.brandName;
-    // Build a key from type + modifiers to distinguish variants
-    const modKey = bottle.modifiers.length > 0 ? bottle.modifiers.sort().join(" ") + " " : "";
-    const variantKey = `${modKey}${bottle.typeName}`;
-
-    setCodex(prev => {
-      const next = { ...prev };
-      if (!next[brand]) next[brand] = {};
-      const existing = next[brand][variantKey];
-      if (existing) {
-        // Update year range if year is known
-        if (bottle.yearKnown) {
-          existing.minYear = Math.min(existing.minYear ?? bottle.year, bottle.year);
-          existing.maxYear = Math.max(existing.maxYear ?? bottle.year, bottle.year);
-        }
-        // Track encounters
-        existing.encounters = (existing.encounters || 1) + 1;
-        // Keep latest stats (proof/age/mashbill from most recent encounter)
-        existing.lastProof = bottle.proof;
-        existing.lastAge = bottle.age;
-        existing.lastMashbill = bottle.mashbill;
-      } else {
-        next[brand][variantKey] = {
-          brandName: brand,
-          typeName: bottle.typeName,
-          modifiers: [...bottle.modifiers],
-          variantKey,
-          displayName: `${brand} ${variantKey}`,
-          minYear: bottle.yearKnown ? bottle.year : null,
-          maxYear: bottle.yearKnown ? bottle.year : null,
-          lastProof: bottle.proof,
-          lastAge: bottle.age,
-          lastMashbill: bottle.mashbill,
-          region: bottle.region,
-          encounters: 1,
-          // Visual identity
-          bottleShapeIdx: bottle.bottleShapeIdx,
-          bottleColor: bottle.bottleColor,
-          capColor: bottle.capColor,
-          labelColor: bottle.labelColor,
-          labelAccent: bottle.labelAccent,
-        };
-      }
-      return next;
-    });
-  }, []);
-
-  const trackPriceInCodex = useCallback((bottle, dealType, price) => {
-    if (!bottle) return;
-    const brand = bottle.brandName;
-    const modKey = bottle.modifiers.length > 0 ? bottle.modifiers.sort().join(" ") + " " : "";
-    const variantKey = `${modKey}${bottle.typeName}`;
-    const yearKey = bottle.yearKnown ? String(bottle.year) : "unknown";
-
-    setCodex(prev => {
-      const next = { ...prev };
-      if (!next[brand] || !next[brand][variantKey]) return next; // must already be tracked
-      const entry = next[brand][variantKey];
-      if (!entry.priceHistory) entry.priceHistory = {};
-      if (!entry.priceHistory[yearKey]) entry.priceHistory[yearKey] = {};
-      const yh = entry.priceHistory[yearKey];
-
-      if (dealType === "buy") {
-        yh.minBuy = yh.minBuy != null ? Math.min(yh.minBuy, price) : price;
-        yh.maxBuy = yh.maxBuy != null ? Math.max(yh.maxBuy, price) : price;
-      } else {
-        yh.minSell = yh.minSell != null ? Math.min(yh.minSell, price) : price;
-        yh.maxSell = yh.maxSell != null ? Math.max(yh.maxSell, price) : price;
-      }
-      return next;
-    });
-  }, []);
+  }, [inventory, selectedSellBottle, getOfferForBottle]);
 
   const submitOffer = useCallback(() => {
     if (!currentCustomer || !negotiating) return;
@@ -1474,21 +1659,6 @@ function WhiskeyGame() {
     setNegResult("accepted");
     setNegHistory(prev => [...prev, { who: "player", amount: customerOffer, text: `You accept $${customerOffer.toLocaleString()}` }, { who: "customer", amount: customerOffer, text: `"Deal!"` }]);
   }, [currentCustomer, customerOffer]);
-
-  const advanceToNextCustomer = useCallback(() => {
-    const nextIdx = customerIndex + 1;
-    setNegotiating(false); setNegResult(null); setSelectedSellBottle(null); setYearQuestioned(false);
-    if (nextIdx < customerQueue.length) {
-      const nextCustomer = customerQueue[nextIdx];
-      setCustomerIndex(nextIdx);
-      setCurrentCustomer(nextCustomer);
-      // Track seller bottles in codex when encountered
-      if (nextCustomer.type === "seller" && nextCustomer.bottle) trackBottleInCodex(nextCustomer.bottle);
-      audio.playSfx("customerEnter");
-    } else {
-      setCurrentCustomer(null);
-    }
-  }, [customerIndex, customerQueue, audio, trackBottleInCodex]);
 
   const finalizeDeal = useCallback(() => {
     if (!currentCustomer || negResult !== "accepted") return;
@@ -1596,7 +1766,10 @@ function WhiskeyGame() {
     setNegotiating(false);
     setNegResult(null);
     setDayEvent(null);
-    setYearQuestioned(false);
+   
+    setPreTacticUsed(null);
+    setMidTacticUsed(null);
+    setTacticResult(null);
   }, [day, dailyLog, cash, tierData, missedRent, customerIndex, currentCustomer, customerQueue]);
 
   const closeDaySummary = useCallback(() => { setShowDaySummary(null); }, []);
@@ -1701,50 +1874,54 @@ function WhiskeyGame() {
       {/* GAME */}
       {screen === "game" && engine && (
         <>
-          <div style={{ borderBottom: "2px solid #3a302830", padding: "16px 24px", background: "linear-gradient(180deg, #1a1510 0%, transparent 100%)" }}>
-            <div style={{ maxWidth: "1200px", margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
-              <div>
-                <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "22px", color: "#D4AF37", margin: 0, letterSpacing: "2px" }}>{storeName}</h1>
-                <div style={{ fontSize: "10px", color: "#8B7355", letterSpacing: "2px", marginTop: "2px", fontFamily: "monospace" }}>
-                  DAY {day} · {STORE_TIERS[storeTier - 1].name.toUpperCase()}
-                  {missedRent > 0 && <span style={{ color: "#C0392B", marginLeft: "8px" }}>· RENT OVERDUE ({missedRent}/{MAX_MISSED_RENT})</span>}
+          <div style={{ borderBottom: "2px solid #3a302830", padding: "10px 12px", background: "linear-gradient(180deg, #1a1510 0%, transparent 100%)" }}>
+            <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                <div>
+                  <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "18px", color: "#D4AF37", margin: 0, letterSpacing: "1px" }}>{storeName}</h1>
+                  <div style={{ fontSize: "9px", color: "#8B7355", letterSpacing: "1px", marginTop: "1px", fontFamily: "monospace" }}>
+                    DAY {day} · {STORE_TIERS[storeTier - 1].name.toUpperCase()}
+                    {missedRent > 0 && <span style={{ color: "#C0392B", marginLeft: "6px" }}>OVERDUE ({missedRent}/{MAX_MISSED_RENT})</span>}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "6px" }}>
+                  <button onClick={() => { setShowOptions(true); audio.playSfx("buttonClick"); }}
+                    style={{ padding: "4px 8px", border: "1px solid #3a3028", borderRadius: "4px", background: "transparent", color: "#8B7355", fontSize: "10px", cursor: "pointer", fontFamily: "monospace" }}>⚙</button>
+                  <button onClick={() => { setScreen("title"); setOfferedBottle(null); audio.playSfx("buttonClick"); }}
+                    style={{ padding: "4px 8px", border: "1px solid #3a3028", borderRadius: "4px", background: "transparent", color: "#8B7355", fontSize: "10px", cursor: "pointer", fontFamily: "monospace" }}>☰</button>
                 </div>
               </div>
-              <div style={{ display: "flex", gap: "12px", alignItems: "center", fontSize: "12px", fontFamily: "monospace", flexWrap: "wrap" }}>
-                <div style={{ background: "#1a1510", padding: "4px 10px", borderRadius: "6px", border: "1px solid #3a3028" }}>
-                  <span style={{ color: "#8B7355" }}>CASH</span> <span style={{ color: cash < tierData.weeklyRent ? "#C0392B" : "#22C55E", fontWeight: "bold" }}>${cash.toLocaleString()}</span>
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", fontSize: "10px", fontFamily: "monospace" }}>
+                <div style={{ background: "#1a1510", padding: "3px 8px", borderRadius: "4px", border: "1px solid #3a3028" }}>
+                  <span style={{ color: "#8B7355" }}>$</span><span style={{ color: cash < tierData.weeklyRent ? "#C0392B" : "#22C55E", fontWeight: "bold" }}>{cash.toLocaleString()}</span>
                 </div>
-                <div style={{ background: "#1a1510", padding: "4px 10px", borderRadius: "6px", border: "1px solid #3a3028" }}>
-                  <span style={{ color: "#8B7355" }}>REP</span> <span style={{ color: "#D4AF37", fontWeight: "bold" }}>{reputation}</span>
+                <div style={{ background: "#1a1510", padding: "3px 8px", borderRadius: "4px", border: "1px solid #3a3028" }}>
+                  <span style={{ color: "#8B7355" }}>REP </span><span style={{ color: "#D4AF37", fontWeight: "bold" }}>{reputation}</span>
                 </div>
-                <div style={{ background: "#1a1510", padding: "4px 10px", borderRadius: "6px", border: "1px solid #3a3028" }}>
-                  <span style={{ color: "#8B7355" }}>SHELF</span> <span style={{ color: inventory.length >= shelfLimit ? "#C0392B" : "#F5E6CA", fontWeight: "bold" }}>{inventory.length}/{shelfLimit}</span>
+                <div style={{ background: "#1a1510", padding: "3px 8px", borderRadius: "4px", border: "1px solid #3a3028" }}>
+                  <span style={{ color: inventory.length >= shelfLimit ? "#C0392B" : "#F5E6CA", fontWeight: "bold" }}>{inventory.length}/{shelfLimit}</span>
                 </div>
-                <div style={{ background: "#1a1510", padding: "4px 10px", borderRadius: "6px", border: "1px solid #3a3028" }}>
-                  <span style={{ color: "#8B7355" }}>RENT</span> <span style={{ color: "#F5E6CA" }}>${tierData.weeklyRent}/wk</span>
-                  {day % 7 > 0 && <span style={{ color: "#8B735580", marginLeft: "4px" }}>({7 - (day % 7)}d)</span>}
+                <div style={{ background: "#1a1510", padding: "3px 8px", borderRadius: "4px", border: "1px solid #3a3028" }}>
+                  <span style={{ color: "#8B7355" }}>RENT </span><span style={{ color: "#F5E6CA" }}>${tierData.weeklyRent}</span>
+                  {day % 7 > 0 && <span style={{ color: "#8B735580" }}> ({7 - (day % 7)}d)</span>}
                 </div>
-                <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontSize: "11px", color: "#8B7355", userSelect: "none" }}>
-                  <input type="checkbox" checked={showRarity} onChange={e => setShowRarity(e.target.checked)} style={{ accentColor: "#D4AF37" }} />RARITY (DEV)
+                <label style={{ display: "flex", alignItems: "center", gap: "4px", cursor: "pointer", fontSize: "10px", color: "#8B7355", userSelect: "none" }}>
+                  <input type="checkbox" checked={showRarity} onChange={e => setShowRarity(e.target.checked)} style={{ accentColor: "#D4AF37", width: "12px", height: "12px" }} />DEV
                 </label>
-                <button onClick={() => { setShowOptions(true); audio.playSfx("buttonClick"); }}
-                  style={{ padding: "6px 12px", border: "1px solid #3a3028", borderRadius: "6px", background: "transparent", color: "#8B7355", fontSize: "11px", cursor: "pointer", fontFamily: "monospace" }}>OPTIONS</button>
-                <button onClick={() => { setScreen("title"); setOfferedBottle(null); audio.playSfx("buttonClick"); }}
-                  style={{ padding: "6px 12px", border: "1px solid #3a3028", borderRadius: "6px", background: "transparent", color: "#8B7355", fontSize: "11px", cursor: "pointer", fontFamily: "monospace" }}>MENU</button>
               </div>
             </div>
           </div>
 
-          <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "16px 24px 0" }}>
-            <div style={{ display: "flex", gap: "4px" }}>
+          <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "8px 12px 0" }}>
+            <div style={{ display: "flex", gap: "2px", overflowX: "auto", WebkitOverflowScrolling: "touch", msOverflowStyle: "none", scrollbarWidth: "none" }}>
               {["shop", "storefront", "inventory", "skills", "codex"].map(tab => (
                 <button key={tab} onClick={() => { setActiveTab(tab); audio.playSfx("buttonClick"); }}
-                  style={{ padding: "10px 24px", border: "none", borderRadius: "8px 8px 0 0", cursor: "pointer", fontSize: "13px", fontFamily: "monospace", letterSpacing: "1px", textTransform: "uppercase", background: activeTab === tab ? "#261f18" : "transparent", color: activeTab === tab ? "#D4AF37" : "#8B7355", transition: "all 0.2s" }}>{tab}</button>
+                  style={{ padding: "8px 14px", border: "none", borderRadius: "8px 8px 0 0", cursor: "pointer", fontSize: "11px", fontFamily: "monospace", letterSpacing: "1px", textTransform: "uppercase", background: activeTab === tab ? "#261f18" : "transparent", color: activeTab === tab ? "#D4AF37" : "#8B7355", transition: "all 0.2s", whiteSpace: "nowrap", flexShrink: 0 }}>{tab}</button>
               ))}
             </div>
           </div>
 
-          <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "24px", background: "#261f1820", borderRadius: "0 12px 12px 12px", minHeight: "500px" }}>
+          <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "12px", background: "#261f1820", borderRadius: "0 12px 12px 12px", minHeight: "400px" }}>
             {activeTab === "storefront" && (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "20px" }}>
                 <StorefrontSVG storeName={storeName} tier={storeTier} />
@@ -1930,52 +2107,21 @@ function WhiskeyGame() {
                                 </div>
                               );
                             })()}
-                            {shelfFull && <div style={{ color: "#C0392B", fontSize: "13px", fontFamily: "monospace", padding: "8px 16px", background: "#C0392B15", borderRadius: "6px", border: "1px solid #C0392B30" }}>SHELF FULL — No room for more bottles. You can still pass.</div>}
-                            {!shelfFull && cash < 5 && <div style={{ color: "#C0392B", fontSize: "13px", fontFamily: "monospace", padding: "8px 16px", background: "#C0392B15", borderRadius: "6px", border: "1px solid #C0392B30" }}>LOW FUNDS — Only ${cash.toLocaleString()} available.</div>}
+                            {shelfFull && <div style={{ color: "#C0392B", fontSize: "12px", fontFamily: "monospace", padding: "8px 12px", background: "#C0392B15", borderRadius: "6px", border: "1px solid #C0392B30", textAlign: "center" }}>SHELF FULL — You can still pass.</div>}
+                            {!shelfFull && cash < 5 && <div style={{ color: "#C0392B", fontSize: "12px", fontFamily: "monospace", padding: "8px 12px", background: "#C0392B15", borderRadius: "6px", border: "1px solid #C0392B30", textAlign: "center" }}>LOW FUNDS — ${cash.toLocaleString()} available.</div>}
 
-                            {/* Question the Year button — only for unknown year bottles, usable once per customer */}
-                            {!currentCustomer.bottle.yearKnown && !yearQuestioned && !negotiating && (
-                              <button onClick={() => {
-                                setYearQuestioned(true);
-                                const c = currentCustomer;
-                                const p = c.personality;
-                                // Low-info/desperate sellers drop price; shrewd ones get offended
-                                if (p.knowledge === "low" || p.id === "desperate") {
-                                  const discount = 0.15 + Math.random() * 0.2; // 15-35% drop
-                                  const newAsk = Math.max(Math.round(c.askingPrice * (1 - discount)), c.minAccept);
-                                  const newMin = Math.max(Math.round(c.minAccept * (1 - discount * 0.5)), 1);
-                                  setCurrentCustomer({ ...c, askingPrice: newAsk, minAccept: newMin,
-                                    openLine: `"...I don't really know the year on this. I guess I could go a bit lower — how about $${newAsk.toLocaleString()}?"` });
-                                } else if (p.knowledge === "medium") {
-                                  const discount = Math.random() * 0.1; // 0-10% small drop
-                                  const newAsk = Math.max(Math.round(c.askingPrice * (1 - discount)), c.minAccept);
-                                  setCurrentCustomer({ ...c, askingPrice: newAsk,
-                                    openLine: `"Yeah, I'm not sure of the exact year. I'd still want around $${newAsk.toLocaleString()} though."` });
-                                } else {
-                                  // High-info seller gets annoyed, might raise price
-                                  const raise = 1 + Math.random() * 0.1;
-                                  const newAsk = Math.round(c.askingPrice * raise);
-                                  setCurrentCustomer({ ...c, askingPrice: newAsk,
-                                    openLine: `"I know exactly what this is worth, year or no year. Actually, make it $${newAsk.toLocaleString()}."` });
-                                }
-                                audio.playSfx("buttonClick");
-                              }}
-                                style={{ padding: "8px 20px", background: "linear-gradient(145deg, #5B3A29, #3d2518)", border: "1px solid #8B735540", borderRadius: "6px", color: "#D4AF37", fontSize: "12px", cursor: "pointer", fontFamily: "monospace" }}>
-                                "You don't know the year on this?"
-                              </button>
-                            )}
-                            {yearQuestioned && !negotiating && (
-                              <div style={{ fontSize: "13px", color: "#C4A882", fontStyle: "italic", textAlign: "center" }}>
-                                "{currentCustomer.openLine}"
+                            {/* Tactic result display */}
+                            {tacticResult && (
+                              <div style={{ fontSize: "13px", color: tacticResult.effect === "great" || tacticResult.effect === "good" ? "#22C55E" : tacticResult.effect === "bad" || tacticResult.effect === "terrible" ? "#C0392B" : "#C4A882", fontStyle: "italic", textAlign: "center", padding: "8px 12px", background: "#1a151060", borderRadius: "6px" }}>
+                                {tacticResult.text}
                               </div>
                             )}
 
                             {!negotiating && (
-                              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
+                              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "center", width: "100%" }}>
                                 {!shelfFull && (
                                   <>
                                     <button onClick={() => {
-                                      // Accept their asking price immediately
                                       if (canAfford(currentCustomer.askingPrice)) {
                                         const boughtBottle = { ...currentCustomer.bottle, purchasePrice: currentCustomer.askingPrice };
                                         setCash(prev => prev - currentCustomer.askingPrice);
@@ -1987,26 +2133,26 @@ function WhiskeyGame() {
                                         advanceToNextCustomer();
                                       }
                                     }} disabled={!canAfford(currentCustomer.askingPrice)}
-                                      style={{ padding: "12px 24px", background: canAfford(currentCustomer.askingPrice) ? "linear-gradient(145deg, #22C55E, #16A34A)" : "#3a3028", border: "none", borderRadius: "8px", color: canAfford(currentCustomer.askingPrice) ? "#fff" : "#8B7355", fontSize: "13px", fontWeight: "bold", cursor: canAfford(currentCustomer.askingPrice) ? "pointer" : "not-allowed", fontFamily: "monospace", opacity: canAfford(currentCustomer.askingPrice) ? 1 : 0.5 }}>
+                                      style={{ flex: "1 1 auto", minWidth: "100px", padding: "12px 16px", background: canAfford(currentCustomer.askingPrice) ? "linear-gradient(145deg, #22C55E, #16A34A)" : "#3a3028", border: "none", borderRadius: "8px", color: canAfford(currentCustomer.askingPrice) ? "#fff" : "#8B7355", fontSize: "13px", fontWeight: "bold", cursor: canAfford(currentCustomer.askingPrice) ? "pointer" : "not-allowed", fontFamily: "monospace", opacity: canAfford(currentCustomer.askingPrice) ? 1 : 0.5 }}>
                                       ACCEPT ${currentCustomer.askingPrice.toLocaleString()}
                                     </button>
                                     <button onClick={() => startNegotiation(currentCustomer)}
-                                      style={{ padding: "12px 24px", background: "linear-gradient(145deg, #D4AF37, #B8960C)", border: "none", borderRadius: "8px", color: "#1a1a1a", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
+                                      style={{ flex: "1 1 auto", minWidth: "100px", padding: "12px 16px", background: "linear-gradient(145deg, #D4AF37, #B8960C)", border: "none", borderRadius: "8px", color: "#1a1a1a", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
                                       NEGOTIATE
                                     </button>
                                   </>
                                 )}
-                                <button onClick={handlePass} style={{ padding: "12px 24px", background: "transparent", border: "2px solid #8B735566", borderRadius: "8px", color: "#8B7355", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>PASS</button>
+                                <button onClick={handlePass} style={{ flex: "1 1 auto", minWidth: "80px", padding: "12px 16px", background: "transparent", border: "2px solid #8B735566", borderRadius: "8px", color: "#8B7355", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>PASS</button>
                               </div>
                             )}
 
                             {/* Negotiation UI */}
                             {negotiating && (
-                              <div style={{ width: "100%", maxWidth: "460px", background: "#1a1510", borderRadius: "12px", padding: "20px", border: "1px solid #3a3028" }}>
-                                <div style={{ maxHeight: "140px", overflowY: "auto", marginBottom: "16px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                              <div style={{ width: "100%", maxWidth: "460px", background: "#1a1510", borderRadius: "12px", padding: "16px", border: "1px solid #3a3028" }}>
+                                <div style={{ maxHeight: "120px", overflowY: "auto", marginBottom: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
                                   {negHistory.map((h, i) => (
                                     <div key={i} style={{ display: "flex", justifyContent: h.who === "player" ? "flex-end" : "flex-start" }}>
-                                      <div style={{ padding: "6px 12px", borderRadius: "8px", maxWidth: "80%", fontSize: "12px", fontFamily: "monospace",
+                                      <div style={{ padding: "6px 10px", borderRadius: "8px", maxWidth: "85%", fontSize: "12px", fontFamily: "monospace",
                                         background: h.who === "player" ? "#D4AF3720" : "#3a302840", color: h.who === "player" ? "#D4AF37" : "#C4A882" }}>
                                         {h.text}
                                       </div>
@@ -2023,7 +2169,7 @@ function WhiskeyGame() {
                                     {!canAfford(negHistory[negHistory.length-1]?.amount || 0) ? (
                                       <div style={{ color: "#C0392B", fontSize: "12px", fontFamily: "monospace", marginBottom: "8px" }}>You can't afford this! (${cash.toLocaleString()} available)</div>
                                     ) : (
-                                      <button onClick={finalizeDeal} style={{ ...menuBtnStyle, padding: "10px 24px", fontSize: "13px", background: "linear-gradient(145deg, #22C55E, #16A34A)" }}>
+                                      <button onClick={finalizeDeal} style={{ ...menuBtnStyle, padding: "10px 20px", fontSize: "13px", background: "linear-gradient(145deg, #22C55E, #16A34A)", width: "100%" }}>
                                         CONFIRM — Pay ${(negHistory[negHistory.length-1]?.amount || 0).toLocaleString()}
                                       </button>
                                     )}
@@ -2031,32 +2177,41 @@ function WhiskeyGame() {
                                 ) : negResult === "walked" ? (
                                   <div style={{ textAlign: "center" }}>
                                     <div style={{ color: "#C0392B", fontSize: "14px", fontFamily: "'Playfair Display', Georgia, serif", marginBottom: "12px" }}>Customer walked away.</div>
-                                    <button onClick={walkAway} style={{ ...menuBtnStyle, padding: "10px 24px", fontSize: "13px", background: "linear-gradient(145deg, #3a3028, #2a2218)", color: "#D4AF37" }}>NEXT</button>
+                                    <button onClick={walkAway} style={{ ...menuBtnStyle, padding: "10px 20px", fontSize: "13px", background: "linear-gradient(145deg, #3a3028, #2a2218)", color: "#D4AF37", width: "100%" }}>NEXT</button>
                                   </div>
                                 ) : (
                                   <>
-                                    <div style={{ marginBottom: "12px" }}>
+                                    {/* Tactics button */}
+                                    {((!preTacticUsed && negRound === 0) || (!midTacticUsed && negRound > 0)) && (
+                                      <div style={{ textAlign: "center", marginBottom: "10px" }}>
+                                        <button onClick={() => setShowTacticsMenu(true)}
+                                          style={{ padding: "6px 16px", background: "#2a221880", border: "1px solid #D4AF3740", borderRadius: "6px", color: "#D4AF37", fontSize: "11px", cursor: "pointer", fontFamily: "monospace" }}>
+                                          TACTICS
+                                        </button>
+                                      </div>
+                                    )}
+                                    <div style={{ marginBottom: "10px" }}>
                                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "#8B7355", fontFamily: "monospace", marginBottom: "4px" }}>
-                                        <span>${Math.round(currentCustomer.askingPrice * 0.25).toLocaleString()}</span><span>Your offer: ${playerOffer.toLocaleString()}</span><span>${Math.round(currentCustomer.askingPrice * 1.5).toLocaleString()}</span>
+                                        <span>${Math.round(currentCustomer.askingPrice * 0.25).toLocaleString()}</span><span>${playerOffer.toLocaleString()}</span><span>${Math.round(currentCustomer.askingPrice * 1.5).toLocaleString()}</span>
                                       </div>
                                       <input type="range" min={Math.round(currentCustomer.askingPrice * 0.25)} max={Math.round(currentCustomer.askingPrice * 1.5)} step={1} value={playerOffer}
                                         onChange={e => setPlayerOffer(Number(e.target.value))}
                                         style={{ width: "100%", accentColor: "#D4AF37", cursor: "pointer" }} />
                                     </div>
-                                    <div style={{ display: "flex", gap: "8px", justifyContent: "center", flexWrap: "wrap" }}>
+                                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                                       <button onClick={submitOffer}
-                                        style={{ padding: "10px 24px", background: "linear-gradient(145deg, #D4AF37, #B8960C)", border: "none", borderRadius: "8px", color: "#1a1a1a", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
+                                        style={{ flex: "1 1 auto", padding: "10px 12px", background: "linear-gradient(145deg, #D4AF37, #B8960C)", border: "none", borderRadius: "8px", color: "#1a1a1a", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
                                         OFFER ${playerOffer.toLocaleString()}
                                       </button>
                                       {negResult === "countered" && (
                                         <button onClick={acceptCounter}
-                                          style={{ padding: "10px 24px", background: "linear-gradient(145deg, #22C55E, #16A34A)", border: "none", borderRadius: "8px", color: "#fff", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
+                                          style={{ flex: "1 1 auto", padding: "10px 12px", background: "linear-gradient(145deg, #22C55E, #16A34A)", border: "none", borderRadius: "8px", color: "#fff", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
                                           ACCEPT ${customerOffer.toLocaleString()}
                                         </button>
                                       )}
                                       <button onClick={walkAway}
-                                        style={{ padding: "10px 24px", background: "transparent", border: "2px solid #8B735566", borderRadius: "8px", color: "#8B7355", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
-                                        WALK AWAY
+                                        style={{ flex: "0 0 auto", padding: "10px 12px", background: "transparent", border: "2px solid #8B735566", borderRadius: "8px", color: "#8B7355", fontSize: "12px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
+                                        WALK
                                       </button>
                                     </div>
                                   </>
@@ -2107,34 +2262,44 @@ function WhiskeyGame() {
                                     </div>
                                   );
                                 })()}
-                                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
-                                  {selectedSellBottle && (
+                                {/* Tactic result display */}
+                                {tacticResult && !negotiating && (
+                                  <div style={{ fontSize: "13px", color: tacticResult.effect === "great" || tacticResult.effect === "good" ? "#22C55E" : tacticResult.effect === "bad" || tacticResult.effect === "terrible" ? "#C0392B" : "#C4A882", fontStyle: "italic", textAlign: "center", padding: "8px 12px", background: "#1a151060", borderRadius: "6px" }}>
+                                    {tacticResult.text}
+                                  </div>
+                                )}
+                                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "center", width: "100%" }}>
+                                  {selectedSellBottle && (() => {
+                                    const selBottle = inventory.find(b => b.id === selectedSellBottle);
+                                    if (!selBottle) return null;
+                                    const { offer } = getOfferForBottle(currentCustomer, selBottle);
+                                    return (
                                     <>
+                                      <div style={{ width: "100%", textAlign: "center", fontSize: "11px", color: "#8B7355", fontFamily: "monospace" }}>
+                                        Offer for <span style={{ color: "#F5E6CA" }}>{selBottle.displayName}</span>: <span style={{ color: "#60A5FA", fontWeight: "bold" }}>${offer.toLocaleString()}</span>
+                                      </div>
                                       <button onClick={() => {
-                                        // Accept their opening offer immediately
-                                        const bottle = inventory.find(b => b.id === selectedSellBottle);
-                                        if (!bottle) return;
-                                        const salePrice = currentCustomer.openingOffer;
-                                        setCash(prev => prev + salePrice);
-                                        setDailyLog(prev => [...prev, { type: "sell", desc: bottle.displayName, amount: salePrice }]);
+                                        setCash(prev => prev + offer);
+                                        setDailyLog(prev => [...prev, { type: "sell", desc: selBottle.displayName, amount: offer }]);
                                         setInventory(p => p.filter(b => b.id !== selectedSellBottle));
-                                        setReputation(prev => prev + (salePrice > (bottle.purchasePrice || 0) * 1.3 ? REP_PER_GREAT_DEAL : REP_PER_GOOD_DEAL));
-                                        trackPriceInCodex(bottle, "sell", salePrice);
-                                        trackBottleInCodex(bottle);
+                                        setReputation(prev => prev + (offer > (selBottle.purchasePrice || 0) * 1.3 ? REP_PER_GREAT_DEAL : REP_PER_GOOD_DEAL));
+                                        trackPriceInCodex(selBottle, "sell", offer);
+                                        trackBottleInCodex(selBottle);
                                         setSelectedSellBottle(null);
                                         audio.playSfx("sellSuccess");
                                         advanceToNextCustomer();
                                       }}
-                                        style={{ padding: "12px 24px", background: "linear-gradient(145deg, #22C55E, #16A34A)", border: "none", borderRadius: "8px", color: "#fff", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
-                                        ACCEPT ${currentCustomer.openingOffer.toLocaleString()}
+                                        style={{ flex: "1 1 auto", minWidth: "100px", padding: "12px 16px", background: "linear-gradient(145deg, #22C55E, #16A34A)", border: "none", borderRadius: "8px", color: "#fff", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
+                                        ACCEPT ${offer.toLocaleString()}
                                       </button>
                                       <button onClick={() => startNegotiation(currentCustomer)}
-                                        style={{ padding: "12px 24px", background: "linear-gradient(145deg, #3B82F6, #2563EB)", border: "none", borderRadius: "8px", color: "#fff", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
+                                        style={{ flex: "1 1 auto", minWidth: "100px", padding: "12px 16px", background: "linear-gradient(145deg, #3B82F6, #2563EB)", border: "none", borderRadius: "8px", color: "#fff", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
                                         NEGOTIATE
                                       </button>
                                     </>
-                                  )}
-                                  <button onClick={handlePass} style={{ padding: "12px 24px", background: "transparent", border: "2px solid #8B735566", borderRadius: "8px", color: "#8B7355", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>PASS</button>
+                                    );
+                                  })()}
+                                  <button onClick={handlePass} style={{ flex: "1 1 auto", minWidth: "80px", padding: "12px 16px", background: "transparent", border: "2px solid #8B735566", borderRadius: "8px", color: "#8B7355", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>PASS</button>
                                 </div>
                               </>
                             )}
@@ -2147,23 +2312,21 @@ function WhiskeyGame() {
                               const sliderMax = Math.round(currentCustomer.openingOffer * 1.5);
                               return (
                                 <div style={{ width: "100%", maxWidth: "460px" }}>
-                                  <div style={{ background: "#2a221840", borderRadius: "8px", padding: "10px", marginBottom: "12px", textAlign: "center" }}>
+                                  <div style={{ background: "#2a221840", borderRadius: "8px", padding: "8px", marginBottom: "10px", textAlign: "center" }}>
                                     <div style={{ fontSize: "13px", color: "#F5E6CA", fontFamily: "'Playfair Display', Georgia, serif" }}>{bottle.displayName}</div>
                                     <div style={{ fontSize: "11px", color: "#8B7355", fontFamily: "monospace" }}>Paid: ${(bottle.purchasePrice ?? 0).toLocaleString()}</div>
                                   </div>
-
-                                  <div style={{ background: "#1a1510", borderRadius: "12px", padding: "20px", border: "1px solid #3a3028" }}>
-                                    <div style={{ maxHeight: "140px", overflowY: "auto", marginBottom: "16px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                                  <div style={{ background: "#1a1510", borderRadius: "12px", padding: "16px", border: "1px solid #3a3028" }}>
+                                    <div style={{ maxHeight: "120px", overflowY: "auto", marginBottom: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
                                       {negHistory.map((h, i) => (
                                         <div key={i} style={{ display: "flex", justifyContent: h.who === "player" ? "flex-end" : "flex-start" }}>
-                                          <div style={{ padding: "6px 12px", borderRadius: "8px", maxWidth: "80%", fontSize: "12px", fontFamily: "monospace",
+                                          <div style={{ padding: "6px 10px", borderRadius: "8px", maxWidth: "85%", fontSize: "12px", fontFamily: "monospace",
                                             background: h.who === "player" ? "#3B82F620" : "#3a302840", color: h.who === "player" ? "#60A5FA" : "#C4A882" }}>
                                             {h.text}
                                           </div>
                                         </div>
                                       ))}
                                     </div>
-
                                     <div style={{ fontSize: "10px", color: "#8B7355", fontFamily: "monospace", textAlign: "center", marginBottom: "8px" }}>
                                       Negotiation round {negRound + 1}
                                     </div>
@@ -2171,39 +2334,48 @@ function WhiskeyGame() {
                                     {negResult === "accepted" ? (
                                       <div style={{ textAlign: "center" }}>
                                         <div style={{ color: "#22C55E", fontSize: "16px", fontFamily: "'Playfair Display', Georgia, serif", marginBottom: "12px" }}>Deal Agreed!</div>
-                                        <button onClick={finalizeDeal} style={{ ...menuBtnStyle, padding: "10px 24px", fontSize: "13px", background: "linear-gradient(145deg, #3B82F6, #2563EB)" }}>
+                                        <button onClick={finalizeDeal} style={{ ...menuBtnStyle, padding: "10px 20px", fontSize: "13px", background: "linear-gradient(145deg, #3B82F6, #2563EB)", width: "100%" }}>
                                           CONFIRM SALE — ${(negHistory[negHistory.length-1]?.amount || 0).toLocaleString()}
                                         </button>
                                       </div>
                                     ) : negResult === "walked" ? (
                                       <div style={{ textAlign: "center" }}>
                                         <div style={{ color: "#C0392B", fontSize: "14px", fontFamily: "'Playfair Display', Georgia, serif", marginBottom: "12px" }}>Customer walked away.</div>
-                                        <button onClick={walkAway} style={{ ...menuBtnStyle, padding: "10px 24px", fontSize: "13px", background: "linear-gradient(145deg, #3a3028, #2a2218)", color: "#D4AF37" }}>NEXT</button>
+                                        <button onClick={walkAway} style={{ ...menuBtnStyle, padding: "10px 20px", fontSize: "13px", background: "linear-gradient(145deg, #3a3028, #2a2218)", color: "#D4AF37", width: "100%" }}>NEXT</button>
                                       </div>
                                     ) : (
                                       <>
-                                        <div style={{ marginBottom: "12px" }}>
+                                        {/* Tactics button */}
+                                        {((!preTacticUsed && negRound === 0) || (!midTacticUsed && negRound > 0)) && (
+                                          <div style={{ textAlign: "center", marginBottom: "10px" }}>
+                                            <button onClick={() => setShowTacticsMenu(true)}
+                                              style={{ padding: "6px 16px", background: "#2a221880", border: "1px solid #3B82F640", borderRadius: "6px", color: "#60A5FA", fontSize: "11px", cursor: "pointer", fontFamily: "monospace" }}>
+                                              TACTICS
+                                            </button>
+                                          </div>
+                                        )}
+                                        <div style={{ marginBottom: "10px" }}>
                                           <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "#8B7355", fontFamily: "monospace", marginBottom: "4px" }}>
-                                            <span>${sliderMin.toLocaleString()}</span><span>Your asking price: ${playerOffer.toLocaleString()}</span><span>${sliderMax.toLocaleString()}</span>
+                                            <span>${sliderMin.toLocaleString()}</span><span>${playerOffer.toLocaleString()}</span><span>${sliderMax.toLocaleString()}</span>
                                           </div>
                                           <input type="range" min={sliderMin} max={sliderMax} step={1} value={playerOffer}
                                             onChange={e => setPlayerOffer(Number(e.target.value))}
                                             style={{ width: "100%", accentColor: "#3B82F6", cursor: "pointer" }} />
                                         </div>
-                                        <div style={{ display: "flex", gap: "8px", justifyContent: "center", flexWrap: "wrap" }}>
+                                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                                           <button onClick={submitOffer}
-                                            style={{ padding: "10px 24px", background: "linear-gradient(145deg, #3B82F6, #2563EB)", border: "none", borderRadius: "8px", color: "#fff", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
+                                            style={{ flex: "1 1 auto", padding: "10px 12px", background: "linear-gradient(145deg, #3B82F6, #2563EB)", border: "none", borderRadius: "8px", color: "#fff", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
                                             ASK ${playerOffer.toLocaleString()}
                                           </button>
                                           {negResult === "countered" && (
                                             <button onClick={acceptCounter}
-                                              style={{ padding: "10px 24px", background: "linear-gradient(145deg, #22C55E, #16A34A)", border: "none", borderRadius: "8px", color: "#fff", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
+                                              style={{ flex: "1 1 auto", padding: "10px 12px", background: "linear-gradient(145deg, #22C55E, #16A34A)", border: "none", borderRadius: "8px", color: "#fff", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
                                               ACCEPT ${customerOffer.toLocaleString()}
                                             </button>
                                           )}
                                           <button onClick={walkAway}
-                                            style={{ padding: "10px 24px", background: "transparent", border: "2px solid #8B735566", borderRadius: "8px", color: "#8B7355", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
-                                            WALK AWAY
+                                            style={{ flex: "0 0 auto", padding: "10px 12px", background: "transparent", border: "2px solid #8B735566", borderRadius: "8px", color: "#8B7355", fontSize: "12px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
+                                            WALK
                                           </button>
                                         </div>
                                       </>
@@ -2415,6 +2587,32 @@ function WhiskeyGame() {
               </div>
             )}
           </div>
+
+          {/* Tactics Modal Dialog */}
+          {showTacticsMenu && (
+            <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }}
+              onClick={() => setShowTacticsMenu(false)}>
+              <div style={{ background: "linear-gradient(145deg, #1c1714, #261f18)", border: "1px solid #D4AF3740", borderRadius: "12px", padding: "20px", width: "100%", maxWidth: "320px", display: "flex", flexDirection: "column", gap: "8px" }}
+                onClick={e => e.stopPropagation()}>
+                <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "16px", color: "#D4AF37", textAlign: "center", marginBottom: "4px" }}>
+                  Choose a Tactic
+                </div>
+                <div style={{ fontSize: "10px", color: "#8B7355", fontFamily: "monospace", textAlign: "center", marginBottom: "8px" }}>
+                  {negRound === 0 ? "Opening move — sets the tone" : "Mid-negotiation — shift momentum"}
+                </div>
+                {Object.values(TACTICS).filter(t => (negRound === 0 ? true : t.id !== preTacticUsed) && (!t.requiresSkill || (playerSkills[t.requiresSkill] || 0) >= t.minLevel) && (!t.sellerOnly || currentCustomer?.type === "seller") && (!t.requiresUnknownYear || !currentCustomer?.bottle?.yearKnown)).map(t => (
+                  <button key={t.id} onClick={() => applyTactic(t.id, negRound === 0 ? "pre" : "mid")}
+                    style={{ padding: "12px 16px", background: "#2a221880", border: "1px solid #8B735530", borderRadius: "8px", color: "#F5E6CA", fontSize: "14px", cursor: "pointer", fontFamily: "monospace", textAlign: "left", width: "100%", transition: "border-color 0.2s" }}>
+                    {t.label}
+                  </button>
+                ))}
+                <button onClick={() => setShowTacticsMenu(false)}
+                  style={{ padding: "10px 16px", background: "transparent", border: "2px solid #8B735540", borderRadius: "8px", color: "#8B7355", fontSize: "13px", cursor: "pointer", fontFamily: "monospace", marginTop: "4px", width: "100%" }}>
+                  CANCEL
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
 
