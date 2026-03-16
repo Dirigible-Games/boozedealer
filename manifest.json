@@ -1,0 +1,11 @@
+{
+  "name": "Rare Spirits — Whiskey Trading Co.",
+  "short_name": "Rare Spirits",
+  "description": "A rare whiskey trading game. Buy low, sell high, build your empire.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d0a07",
+  "theme_color": "#0d0a07",
+  "icons": []
+}

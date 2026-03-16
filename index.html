@@ -1,0 +1,1939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Rare Spirits — Whiskey Trading Co.</title>
+  <meta name="description" content="A rare whiskey trading game. Buy low, sell high, and build your empire.">
+  <meta name="theme-color" content="#0d0a07">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <style>
+    html, body, #root { margin: 0; padding: 0; min-height: 100vh; background: #0d0a07; }
+    body { overflow-x: hidden; }
+  </style>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+const { useState, useRef, useCallback, useEffect } = React;
+
+// ============================================================================
+// WHISKEY TYPE DEFINITIONS - Expandable Registry
+// ============================================================================
+const WHISKEY_TYPES = {
+  Bourbon: {
+    regionTags: ["American"],
+    mashbill: {
+      primary: { grain: "Corn", min: 51, max: 80 },
+      secondary: ["Barley", "Wheat", "Rye"],
+    },
+    proof: { min: 80, max: 140 },
+    age: { min: 2, max: 23 },
+    modifiers: [
+      { name: "Single Barrel", requirements: { minAge: 4 }, combinable: true },
+      { name: "Full Proof", requirements: { minProof: 110 }, combinable: true },
+      { name: "Barrel Proof", requirements: { minProof: 117 }, combinable: true },
+      { name: "Bottled-in-Bond", requirements: { minAge: 4, exactProof: 100 }, combinable: true },
+      { name: "Double Oaked", requirements: {}, combinable: true },
+      { name: "Finished in Cognac Barrels", requirements: {}, combinable: false },
+      { name: "Finished in Sherry Barrels", requirements: {}, combinable: false },
+      { name: "Finished in Rum Barrels", requirements: {}, combinable: false },
+      { name: "Finished in Stout Barrels", requirements: {}, combinable: false },
+      { name: "Finished in IPA Barrels", requirements: {}, combinable: false },
+      { name: "Finished in Merlot Barrels", requirements: {}, combinable: false },
+      { name: "Special Release", requirements: { specialMashbill: true }, combinable: false },
+    ],
+  },
+  Rye: {
+    regionTags: ["American", "Canadian"],
+    mashbill: {
+      primary: { grain: "Rye", min: 51, max: 80 },
+      secondary: ["Barley", "Wheat", "Corn"],
+    },
+    proof: { min: 80, max: 140 },
+    age: { min: 2, max: 23 },
+    modifiers: [
+      { name: "Single Barrel", requirements: { minAge: 4 }, combinable: true },
+      { name: "Full Proof", requirements: { minProof: 110 }, combinable: true },
+      { name: "Barrel Proof", requirements: { minProof: 117 }, combinable: true },
+      { name: "Bottled-in-Bond", requirements: { minAge: 4, exactProof: 100 }, combinable: true },
+      { name: "Double Oaked", requirements: {}, combinable: true },
+      { name: "Finished in Cognac Barrels", requirements: {}, combinable: false },
+      { name: "Finished in Sherry Barrels", requirements: {}, combinable: false },
+      { name: "Finished in Rum Barrels", requirements: {}, combinable: false },
+      { name: "Finished in Stout Barrels", requirements: {}, combinable: false },
+      { name: "Finished in IPA Barrels", requirements: {}, combinable: false },
+      { name: "Finished in Merlot Barrels", requirements: {}, combinable: false },
+      { name: "Special Release", requirements: { specialMashbill: true }, combinable: false },
+    ],
+  },
+};
+
+// ============================================================================
+// RARITY SYSTEM
+// ============================================================================
+const RARITIES = [
+  { name: "Common", color: "#6B7280", weight: 40 },
+  { name: "Uncommon", color: "#22C55E", weight: 25 },
+  { name: "Rare", color: "#3B82F6", weight: 18 },
+  { name: "Epic", color: "#A855F7", weight: 10 },
+  { name: "Legendary", color: "#EAB308", weight: 5 },
+  { name: "Unicorn", gradient: "linear-gradient(135deg, #3B82F6, #EC4899)", weight: 2 },
+];
+
+// ============================================================================
+// BRAND NAME GENERATION DATA
+// ============================================================================
+const BRAND_PREFIXES = [
+  "Old", "Eagle", "Heritage", "Iron", "Golden", "Stone", "Copper", "Black",
+  "Red", "Silver", "Crown", "Wild", "Lost", "Timber", "River", "Mountain",
+  "Prairie", "Hawk", "Bear", "Oak", "Cedar", "Maple", "Pine", "Sage",
+  "Frontier", "Pioneer", "Summit", "Valley", "Ridge", "Creek",
+];
+const BRAND_SUFFIXES = [
+  "Creek", "Ridge", "Hollow", "Springs", "Reserve", "Trail", "Rock",
+  "Run", "Fork", "Bend", "Branch", "Mill", "Gap", "Bluff", "Point",
+  "Haven", "Forge", "Bridge", "Hill", "Glen", "Barrel", "Still",
+  "Cask", "Distillery", "Bros", "& Sons", "Estate", "Works",
+];
+
+// ============================================================================
+// BOTTLE SHAPE TEMPLATES
+// ============================================================================
+const BOTTLE_SHAPES = [
+  (color, capColor) => `
+    <rect x="43" y="6" width="14" height="10" rx="3" fill="${capColor}" stroke="${capColor}" stroke-width="1"/>
+    <rect x="45" y="16" width="10" height="30" rx="2" fill="${color}" stroke="#1a1a1a" stroke-width="1"/>
+    <path d="M45 46 Q45 52 36 58 L36 142 Q36 148 42 148 L58 148 Q64 148 64 142 L64 58 Q55 52 55 46" fill="${color}" stroke="#1a1a1a" stroke-width="1.5"/>
+  `,
+  (color, capColor) => `
+    <rect x="40" y="14" width="20" height="10" rx="3" fill="${capColor}" stroke="${capColor}" stroke-width="1"/>
+    <rect x="43" y="24" width="14" height="12" rx="2" fill="${color}" stroke="#1a1a1a" stroke-width="1"/>
+    <path d="M43 36 Q43 42 24 52 L24 120 Q24 130 30 136 L30 148 L70 148 L70 136 Q76 130 76 120 L76 52 Q57 42 57 36" fill="${color}" stroke="#1a1a1a" stroke-width="1.5"/>
+  `,
+  (color, capColor) => `
+    <rect x="39" y="8" width="22" height="10" rx="2" fill="${capColor}" stroke="${capColor}" stroke-width="1"/>
+    <rect x="42" y="18" width="16" height="18" rx="1" fill="${color}" stroke="#1a1a1a" stroke-width="1"/>
+    <path d="M42 36 Q36 44 28 48 L28 50 L32 50 L32 142 Q32 148 40 148 L60 148 Q68 148 68 142 L68 50 L72 50 L72 48 Q64 44 58 36" fill="${color}" stroke="#1a1a1a" stroke-width="1.5"/>
+  `,
+  (color, capColor) => `
+    <polygon points="44,8 56,8 58,18 42,18" fill="${capColor}" stroke="${capColor}" stroke-width="1"/>
+    <polygon points="42,18 58,18 60,40 40,40" fill="${color}" stroke="#1a1a1a" stroke-width="1"/>
+    <polygon points="28,48 72,48 68,148 32,148" fill="${color}" stroke="#1a1a1a" stroke-width="1.5"/>
+    <line x1="28" y1="48" x2="40" y2="40" stroke="#1a1a1a" stroke-width="1"/>
+    <line x1="72" y1="48" x2="60" y2="40" stroke="#1a1a1a" stroke-width="1"/>
+  `,
+  (color, capColor) => `
+    <circle cx="50" cy="10" r="7" fill="${capColor}" stroke="${capColor}" stroke-width="1"/>
+    <rect x="46" y="17" width="8" height="24" rx="1" fill="${color}" stroke="#1a1a1a" stroke-width="1"/>
+    <ellipse cx="50" cy="100" rx="32" ry="48" fill="${color}" stroke="#1a1a1a" stroke-width="1.5"/>
+    <line x1="46" y1="41" x2="30" y2="62" stroke="#1a1a1a" stroke-width="1"/>
+    <line x1="54" y1="41" x2="70" y2="62" stroke="#1a1a1a" stroke-width="1"/>
+  `,
+  (color, capColor) => `
+    <ellipse cx="50" cy="10" rx="12" ry="8" fill="${capColor}" stroke="#1a1a1a" stroke-width="1"/>
+    <rect x="46" y="18" width="8" height="14" rx="1" fill="${color}" stroke="#1a1a1a" stroke-width="1"/>
+    <ellipse cx="50" cy="36" rx="12" ry="4" fill="${color}" stroke="#1a1a1a" stroke-width="1"/>
+    <path d="M38 36 Q28 50 28 70 L28 130 Q28 148 42 148 L58 148 Q72 148 72 130 L72 70 Q72 50 62 36" fill="${color}" stroke="#1a1a1a" stroke-width="1.5"/>
+    <ellipse cx="50" cy="70" rx="22" ry="3" fill="none" stroke="#1a1a1a" stroke-width="0.8" opacity="0.4"/>
+  `,
+  (color, capColor) => `
+    <rect x="42" y="6" width="16" height="12" rx="1" fill="${capColor}" stroke="${capColor}" stroke-width="1"/>
+    <rect x="44" y="18" width="12" height="22" rx="0" fill="${color}" stroke="#1a1a1a" stroke-width="1"/>
+    <rect x="32" y="44" width="36" height="104" rx="3" fill="${color}" stroke="#1a1a1a" stroke-width="1.5"/>
+    <line x1="44" y1="40" x2="32" y2="44" stroke="#1a1a1a" stroke-width="1"/>
+    <line x1="56" y1="40" x2="68" y2="44" stroke="#1a1a1a" stroke-width="1"/>
+  `,
+  (color, capColor) => `
+    <rect x="42" y="4" width="16" height="8" rx="4" fill="${capColor}" stroke="${capColor}" stroke-width="1"/>
+    <path d="M46 12 L46 28 Q46 34 42 38 Q30 48 26 68 Q22 90 26 110 L30 148 L70 148 L74 110 Q78 90 74 68 Q70 48 58 38 Q54 34 54 28 L54 12" fill="${color}" stroke="#1a1a1a" stroke-width="1.5"/>
+  `,
+  (color, capColor) => `
+    <rect x="46" y="10" width="8" height="8" rx="2" fill="${capColor}" stroke="${capColor}" stroke-width="1"/>
+    <rect x="46" y="18" width="8" height="10" rx="1" fill="${color}" stroke="#1a1a1a" stroke-width="1"/>
+    <path d="M46 28 Q40 32 22 40 Q18 42 18 48 L18 130 Q18 148 34 148 L66 148 Q82 148 82 130 L82 48 Q82 42 78 40 Q60 32 54 28" fill="${color}" stroke="#1a1a1a" stroke-width="1.5"/>
+    <rect x="18" y="130" width="64" height="4" rx="1" fill="${color}" stroke="#1a1a1a" stroke-width="0.8"/>
+  `,
+  (color, capColor) => `
+    <rect x="44" y="6" width="12" height="10" rx="2" fill="${capColor}" stroke="${capColor}" stroke-width="1"/>
+    <rect x="46" y="16" width="8" height="20" rx="1" fill="${color}" stroke="#1a1a1a" stroke-width="1"/>
+    <path d="M46 36 L30 42 L30 52 L34 52 L34 142 Q34 148 40 148 L60 148 Q66 148 66 142 L66 52 L70 52 L70 42 L54 36" fill="${color}" stroke="#1a1a1a" stroke-width="1.5"/>
+  `,
+  (color, capColor) => `
+    <circle cx="50" cy="10" r="6" fill="${capColor}" stroke="${capColor}" stroke-width="1"/>
+    <rect x="47" y="16" width="6" height="16" rx="1" fill="${color}" stroke="#1a1a1a" stroke-width="1"/>
+    <path d="M47 32 Q44 38 40 44 L36 148 L64 148 L60 44 Q56 38 53 32" fill="${color}" stroke="#1a1a1a" stroke-width="1.5"/>
+    <line x1="36" y1="140" x2="64" y2="140" stroke="#1a1a1a" stroke-width="0.8" opacity="0.4"/>
+  `,
+  (color, capColor) => `
+    <rect x="42" y="6" width="14" height="10" rx="3" fill="${capColor}" stroke="${capColor}" stroke-width="1"/>
+    <rect x="44" y="16" width="10" height="14" rx="2" fill="${color}" stroke="#1a1a1a" stroke-width="1"/>
+    <ellipse cx="48" cy="96" rx="28" ry="52" fill="${color}" stroke="#1a1a1a" stroke-width="1.5"/>
+    <path d="M76 60 Q86 60 86 76 L86 100 Q86 116 76 116" fill="none" stroke="#1a1a1a" stroke-width="2.5"/>
+    <path d="M76 60 Q84 60 84 76 L84 100 Q84 116 76 116" fill="none" stroke="${color}" stroke-width="1.5"/>
+    <line x1="44" y1="30" x2="30" y2="54" stroke="#1a1a1a" stroke-width="1"/>
+    <line x1="54" y1="30" x2="66" y2="54" stroke="#1a1a1a" stroke-width="1"/>
+  `,
+];
+
+const BOTTLE_COLORS = [
+  "#2D1810", "#3D2314", "#1a1207", "#4a3728", "#2b1f0e",
+  "#1c2a1c", "#3a2010", "#4d3319", "#362008", "#241a0d",
+];
+const CAP_COLORS = [
+  "#C0392B", "#1a1a1a", "#B8860B", "#7D3C98", "#2C3E50",
+  "#D4AF37", "#8B0000", "#2F4F4F", "#CD853F", "#800020",
+];
+const LABEL_COLORS = [
+  "#F5E6CA", "#FFF8E7", "#E8D5B7", "#FCF3E3", "#FFFDD0",
+  "#F0E5D0", "#FFF5E1", "#F5EDDC", "#FAEBD7", "#FDF5E6",
+];
+const LABEL_ACCENT_COLORS = [
+  "#8B0000", "#1a1a1a", "#B8860B", "#2C3E50", "#4A0E0E",
+  "#3C1414", "#D4AF37", "#5B3A29", "#704214", "#C0392B",
+];
+
+// ============================================================================
+// SEEDED RANDOM
+// ============================================================================
+function seededRandom(seed) {
+  let s = seed;
+  return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
+}
+function hashString(str) {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) hash = ((hash << 5) + hash + str.charCodeAt(i)) & 0xffffffff;
+  return hash >>> 0;
+}
+
+// ============================================================================
+// AUDIO MANAGER - Placeholder system
+// ============================================================================
+const SOUND_EFFECTS = {
+  buttonClick: null,     // "sfx/button_click.mp3"
+  buySuccess: null,      // "sfx/buy_success.mp3"
+  buyFail: null,         // "sfx/buy_fail.mp3"
+  pass: null,            // "sfx/pass.mp3"
+  customerEnter: null,   // "sfx/customer_enter.mp3"
+  sellSuccess: null,     // "sfx/sell_success.mp3"
+  sellFail: null,        // "sfx/sell_fail.mp3"
+  storeUpgrade: null,    // "sfx/store_upgrade.mp3"
+};
+const MUSIC_TRACKS = {
+  titleScreen: null,     // "music/title_theme.mp3"
+  gameAmbient: null,     // "music/ambient_store.mp3"
+};
+
+class AudioManager {
+  constructor() { this.sfxVolume = 0.75; this.musicVolume = 0.50; this.currentMusic = null; this.musicAudio = null; }
+  setSfxVolume(vol) { this.sfxVolume = Math.max(0, Math.min(1, vol)); }
+  setMusicVolume(vol) {
+    this.musicVolume = Math.max(0, Math.min(1, vol));
+    if (this.musicAudio) this.musicAudio.volume = this.musicVolume;
+  }
+  playSfx(sfxKey) {
+    const src = SOUND_EFFECTS[sfxKey];
+    if (!src || this.sfxVolume === 0) return;
+    try { const a = new Audio(src); a.volume = this.sfxVolume; a.play().catch(() => {}); } catch (e) {}
+  }
+  playMusic(trackKey) {
+    const src = MUSIC_TRACKS[trackKey];
+    if (this.currentMusic === trackKey) return;
+    this.stopMusic(); this.currentMusic = trackKey;
+    if (!src || this.musicVolume === 0) return;
+    try { this.musicAudio = new Audio(src); this.musicAudio.loop = true; this.musicAudio.volume = this.musicVolume; this.musicAudio.play().catch(() => {}); } catch (e) {}
+  }
+  stopMusic() { if (this.musicAudio) { this.musicAudio.pause(); this.musicAudio = null; } this.currentMusic = null; }
+  getState() { return { sfxVolume: this.sfxVolume, musicVolume: this.musicVolume }; }
+  loadState(s) { if (s) { this.setSfxVolume(s.sfxVolume ?? 0.75); this.setMusicVolume(s.musicVolume ?? 0.50); } }
+}
+
+// ============================================================================
+// PROCEDURAL GENERATION ENGINE
+// ============================================================================
+class WhiskeyEngine {
+  constructor(gameSeed = Date.now()) {
+    this.gameSeed = gameSeed; this.brands = {}; this.bottleCache = {}; this.brandNames = []; this._initBrands();
+  }
+  _initBrands() {
+    const rng = seededRandom(this.gameSeed);
+    const numBrands = 8 + Math.floor(rng() * 8);
+    const usedNames = new Set();
+    for (let i = 0; i < numBrands; i++) {
+      let name, attempts = 0;
+      do { name = `${BRAND_PREFIXES[Math.floor(rng() * BRAND_PREFIXES.length)]} ${BRAND_SUFFIXES[Math.floor(rng() * BRAND_SUFFIXES.length)]}`; attempts++; } while (usedNames.has(name) && attempts < 50);
+      if (usedNames.has(name)) continue;
+      usedNames.add(name);
+      const allRegions = ["American", "Canadian"];
+      this.brands[name] = {
+        region: allRegions[Math.floor(rng() * allRegions.length)], types: {},
+        bottleShapeIdx: Math.floor(rng() * BOTTLE_SHAPES.length),
+        bottleColor: BOTTLE_COLORS[Math.floor(rng() * BOTTLE_COLORS.length)],
+        capColor: CAP_COLORS[Math.floor(rng() * CAP_COLORS.length)],
+        labelColor: LABEL_COLORS[Math.floor(rng() * LABEL_COLORS.length)],
+        labelAccent: LABEL_ACCENT_COLORS[Math.floor(rng() * LABEL_ACCENT_COLORS.length)],
+      };
+      this.brandNames.push(name);
+    }
+  }
+  _getBrandRng(brandName, extra = "") { return seededRandom(hashString(brandName + extra + this.gameSeed)); }
+  _generateMashbill(typeDef, rng) {
+    const primaryPct = typeDef.mashbill.primary.min + Math.floor(rng() * (typeDef.mashbill.primary.max - typeDef.mashbill.primary.min + 1));
+    let remaining = 100 - primaryPct;
+    const secondaryGrains = [...typeDef.mashbill.secondary];
+    const mashbill = { [typeDef.mashbill.primary.grain]: primaryPct };
+    for (let i = 0; i < secondaryGrains.length; i++) {
+      if (i === secondaryGrains.length - 1) { if (remaining > 0) mashbill[secondaryGrains[i]] = remaining; }
+      else { const portion = Math.floor(rng() * (remaining + 1)); if (portion > 0) mashbill[secondaryGrains[i]] = portion; remaining -= portion; }
+    }
+    return mashbill;
+  }
+  _getOrCreateBrandType(brandName, typeName) {
+    const brand = this.brands[brandName]; if (!brand) return null;
+    if (brand.types[typeName]) return brand.types[typeName];
+    const typeDef = WHISKEY_TYPES[typeName]; if (!typeDef || !typeDef.regionTags.includes(brand.region)) return null;
+    brand.types[typeName] = { mashbill: this._generateMashbill(typeDef, this._getBrandRng(brandName, typeName)) };
+    return brand.types[typeName];
+  }
+  _selectModifiers(typeDef, proof, age, rng) {
+    const modifiers = []; if (rng() > 0.55) return modifiers;
+    const available = typeDef.modifiers.filter(m => {
+      if (m.requirements.minAge && age < m.requirements.minAge) return false;
+      if (m.requirements.minProof && proof < m.requirements.minProof) return false;
+      if (m.requirements.exactProof && proof !== m.requirements.exactProof) return false;
+      if (m.requirements.specialMashbill) return false; return true;
+    });
+    if (available.length === 0) return modifiers;
+    const first = available[Math.floor(rng() * available.length)]; modifiers.push(first.name);
+    if (first.combinable && rng() > 0.7) {
+      const second = available.filter(m => m.combinable && m.name !== first.name);
+      if (second.length > 0) modifiers.push(second[Math.floor(rng() * second.length)].name);
+    }
+    return modifiers;
+  }
+  _selectRarity(rng) {
+    const tw = RARITIES.reduce((s, r) => s + r.weight, 0); let roll = rng() * tw;
+    for (const r of RARITIES) { roll -= r.weight; if (roll <= 0) return r.name; } return "Common";
+  }
+  _calculateBaseValue(age, proof, rarity, modifiers) {
+    let v = 20 + age * 8 + (proof - 80) * 0.5;
+    v *= ({ Common: 1, Uncommon: 1.5, Rare: 2.5, Epic: 5, Legendary: 12, Unicorn: 30 })[rarity] || 1;
+    if (modifiers.length > 0) v *= 1 + modifiers.length * 0.2;
+    if (modifiers.includes("Barrel Proof")) v *= 1.3;
+    if (modifiers.includes("Bottled-in-Bond")) v *= 1.15;
+    if (modifiers.includes("Single Barrel")) v *= 1.25;
+    if (modifiers.some(m => m.startsWith("Finished in"))) v *= 1.2;
+    return Math.round(v);
+  }
+  generateBottle() {
+    const rng = seededRandom(Date.now() + Math.random() * 100000);
+    const brandName = this.brandNames[Math.floor(rng() * this.brandNames.length)];
+    const brand = this.brands[brandName];
+    const compatibleTypes = Object.keys(WHISKEY_TYPES).filter(t => WHISKEY_TYPES[t].regionTags.includes(brand.region));
+    const typeName = compatibleTypes[Math.floor(rng() * compatibleTypes.length)];
+    const typeDef = WHISKEY_TYPES[typeName];
+    this._getOrCreateBrandType(brandName, typeName);
+    const mashbill = { ...brand.types[typeName].mashbill };
+    const age = typeDef.age.min + Math.floor(rng() * (typeDef.age.max - typeDef.age.min + 1));
+    const year = 2026 - age - Math.floor(rng() * 5);
+    const showYear = rng() > 0.15;
+    let proof = typeDef.proof.min + Math.floor(rng() * (typeDef.proof.max - typeDef.proof.min + 1));
+    let modifiers = this._selectModifiers(typeDef, proof, age, rng);
+    if (modifiers.includes("Bottled-in-Bond")) proof = 100;
+    const modKey = modifiers.length > 0 ? modifiers.sort().join("|") : "base";
+    const cacheKey = `${brandName}|${typeName}|${year}|${modKey}`;
+    if (this.bottleCache[cacheKey]) return { ...this.bottleCache[cacheKey], id: `b_${Date.now()}_${Math.floor(Math.random()*10000)}`, yearKnown: showYear };
+    const rarity = this._selectRarity(rng);
+    const value = this._calculateBaseValue(age, proof, rarity, modifiers);
+    const isSpecial = rng() > 0.92;
+    let displayMashbill = mashbill;
+    if (isSpecial) {
+      displayMashbill = this._generateMashbill(typeDef, seededRandom(hashString(cacheKey + "special")));
+      if (JSON.stringify(displayMashbill) !== JSON.stringify(mashbill) && !modifiers.some(m => !WHISKEY_TYPES[typeName].modifiers.find(md => md.name === m)?.combinable))
+        modifiers = ["Special Release"];
+    }
+    const finishMods = modifiers.filter(m => m.startsWith("Finished in"));
+    const otherMods = modifiers.filter(m => !m.startsWith("Finished in"));
+    const displayName = `${showYear ? year + " " : ""}${brandName} ${otherMods.length ? otherMods.join(" ") + " " : ""}${typeName}${finishMods.length ? " " + finishMods.join(" ") : ""}`;
+    const bottle = {
+      id: `b_${Date.now()}_${Math.floor(Math.random()*10000)}`, brandName, typeName, displayName, year, yearKnown: showYear, age, proof,
+      mashbill: displayMashbill, region: brand.region, modifiers, rarity, value,
+      bottleShapeIdx: brand.bottleShapeIdx, bottleColor: brand.bottleColor, capColor: brand.capColor, labelColor: brand.labelColor, labelAccent: brand.labelAccent,
+    };
+    this.bottleCache[cacheKey] = { ...bottle };
+    return bottle;
+  }
+  getEngineStats() {
+    return { totalBrands: this.brandNames.length, cachedBottles: Object.keys(this.bottleCache).length,
+      brandDetails: Object.entries(this.brands).map(([name, b]) => ({ name, region: b.region, types: Object.keys(b.types) })) };
+  }
+}
+
+// ============================================================================
+// SVG COMPONENTS
+// ============================================================================
+function BottleSVG({ bottle, size = 160 }) {
+  const shapeFn = BOTTLE_SHAPES[bottle.bottleShapeIdx] || BOTTLE_SHAPES[0];
+  const labelLines = [...bottle.brandName.split(" "), bottle.typeName];
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 160" xmlns="http://www.w3.org/2000/svg" style={{ filter: "drop-shadow(2px 4px 8px rgba(0,0,0,0.5))" }}>
+      <g dangerouslySetInnerHTML={{ __html: shapeFn(bottle.bottleColor, bottle.capColor) }} />
+      <rect x="33" y="72" width="34" height="40" rx="2" fill={bottle.labelColor} stroke={bottle.labelAccent} strokeWidth="1" />
+      {labelLines.slice(0, 3).map((line, i) => (
+        <text key={i} x="50" y={82 + i * 11} textAnchor="middle" fill={bottle.labelAccent} fontSize="6" fontFamily="serif" fontWeight={i === 0 ? "bold" : "normal"}>
+          {line.length > 8 ? line.slice(0, 8) + "." : line}
+        </text>
+      ))}
+      <rect x="34" y="110" width="32" height="36" rx="1" fill={bottle.bottleColor} opacity="0.15" />
+    </svg>
+  );
+}
+
+function tagStyle(bg) {
+  return { display: "inline-block", padding: "2px 8px", borderRadius: "4px", fontSize: "10px", fontFamily: "monospace", letterSpacing: "0.5px", background: bg + "33", color: "#C4A882", border: `1px solid ${bg}66` };
+}
+
+function BottleCard({ bottle, showRarity = false, onClick }) {
+  const rarityDef = RARITIES.find(r => r.name === bottle.rarity);
+  const borderStyle = showRarity
+    ? rarityDef?.gradient ? { borderImage: `${rarityDef.gradient} 1`, borderWidth: "3px", borderStyle: "solid" } : { border: `3px solid ${rarityDef?.color || "#6B7280"}` }
+    : { border: "2px solid #3a3028" };
+  return (
+    <div onClick={onClick} style={{ ...borderStyle, borderRadius: "12px", background: "linear-gradient(145deg, #3d3229, #4a3f33)", padding: "16px", cursor: onClick ? "pointer" : "default", width: "280px", transition: "transform 0.2s, box-shadow 0.2s", boxShadow: "0 4px 12px rgba(0,0,0,0.4)", flexShrink: 0 }}
+      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.6)"; }}
+      onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(0,0,0,0.4)"; }}>
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: "12px", background: "radial-gradient(ellipse at center, rgba(255,248,230,0.08) 0%, transparent 70%)", borderRadius: "8px", padding: "8px 0" }}>
+        <BottleSVG bottle={bottle} size={140} />
+      </div>
+      <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "15px", color: "#F5E6CA", margin: "0 0 10px 0", lineHeight: 1.3, textAlign: "center", minHeight: "40px" }}>{bottle.displayName}</h3>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "10px", justifyContent: "center" }}>
+        <span style={tagStyle("#8B4513")}>{bottle.region}</span>
+        <span style={tagStyle("#704214")}>{bottle.typeName}</span>
+        {bottle.modifiers.map((m, i) => <span key={i} style={tagStyle("#5B3A29")}>{m}</span>)}
+        {showRarity && <span style={{ ...tagStyle(rarityDef?.color || "#6B7280"), ...(rarityDef?.gradient ? { background: rarityDef.gradient, color: "#fff" } : {}) }}>{bottle.rarity}</span>}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", fontSize: "12px", color: "#C4A882", fontFamily: "'JetBrains Mono', 'Courier New', monospace" }}>
+        <div><span style={{ color: "#8B7355" }}>PROOF</span> {bottle.proof}</div>
+        <div><span style={{ color: "#8B7355" }}>AGE</span> {bottle.age}yr</div>
+        <div style={{ gridColumn: "1 / -1" }}><span style={{ color: "#8B7355" }}>YEAR</span> {bottle.yearKnown ? bottle.year : "Unknown"}</div>
+      </div>
+      <div style={{ marginTop: "10px" }}>
+        <div style={{ fontSize: "10px", color: "#8B7355", marginBottom: "4px", fontFamily: "monospace", letterSpacing: "1px" }}>MASHBILL</div>
+        <div style={{ display: "flex", borderRadius: "4px", overflow: "hidden", height: "16px" }}>
+          {Object.entries(bottle.mashbill).filter(([,v]) => v > 0).sort(([,a],[,b]) => b - a).map(([grain, pct]) => {
+            const gc = { Corn: "#D4A017", Rye: "#A0522D", Barley: "#DAA520", Wheat: "#DEB887" };
+            return <div key={grain} style={{ width: `${pct}%`, background: gc[grain] || "#888", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "8px", color: "#1a1a1a", fontWeight: "bold", fontFamily: "monospace", whiteSpace: "nowrap", overflow: "hidden" }} title={`${grain}: ${pct}%`}>{pct >= 15 ? `${grain.slice(0,3)} ${pct}%` : pct >= 8 ? `${pct}` : ""}</div>;
+          })}
+        </div>
+        <div style={{ display: "flex", gap: "8px", marginTop: "4px", flexWrap: "wrap" }}>
+          {Object.entries(bottle.mashbill).filter(([,v]) => v > 0).sort(([,a],[,b]) => b - a).map(([grain, pct]) => {
+            const gc = { Corn: "#D4A017", Rye: "#A0522D", Barley: "#DAA520", Wheat: "#DEB887" };
+            return <span key={grain} style={{ fontSize: "9px", color: gc[grain] || "#888", fontFamily: "monospace" }}>{grain} {pct}%</span>;
+          })}
+        </div>
+      </div>
+      <div style={{ marginTop: "12px", textAlign: "center", fontSize: "18px", fontFamily: "'Playfair Display', Georgia, serif", color: "#D4AF37", fontWeight: "bold" }}>${bottle.value.toLocaleString()}</div>
+    </div>
+  );
+}
+
+// ============================================================================
+// BRAND PANEL
+// ============================================================================
+function BrandPanel({ engine }) {
+  const stats = engine.getEngineStats();
+  const [expanded, setExpanded] = useState(null);
+  return (
+    <div style={{ background: "linear-gradient(145deg, #1c1714, #261f18)", borderRadius: "12px", padding: "20px", border: "1px solid #3a3028" }}>
+      <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "#D4AF37", margin: "0 0 16px 0", fontSize: "18px" }}>Registered Brands ({stats.totalBrands})</h3>
+      <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "400px", overflowY: "auto" }}>
+        {stats.brandDetails.map(b => {
+          const brand = engine.brands[b.name];
+          return (
+            <div key={b.name} onClick={() => setExpanded(expanded === b.name ? null : b.name)}
+              style={{ background: "#1a1510", borderRadius: "8px", padding: "10px 14px", cursor: "pointer", border: expanded === b.name ? "1px solid #D4AF37" : "1px solid #2a2218", transition: "border-color 0.2s" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "#F5E6CA", fontSize: "14px" }}>{b.name}</span>
+                <span style={tagStyle("#8B4513")}>{b.region}</span>
+              </div>
+              {expanded === b.name && (
+                <div style={{ marginTop: "10px", fontSize: "12px", color: "#C4A882", fontFamily: "monospace" }}>
+                  <div style={{ marginBottom: "4px" }}>Types: {b.types.length > 0 ? b.types.join(", ") : "None yet"}</div>
+                  {Object.entries(brand.types).map(([tn, td]) => (
+                    <div key={tn} style={{ marginTop: "6px", padding: "6px", background: "#120e0a", borderRadius: "4px" }}>
+                      <div style={{ color: "#D4AF37", marginBottom: "4px" }}>{tn} Mashbill:</div>
+                      {Object.entries(td.mashbill).filter(([,v]) => v > 0).sort(([,a],[,b]) => b - a).map(([g, p]) => <div key={g} style={{ paddingLeft: "8px" }}>{g}: {p}%</div>)}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// TITLE SCREEN SHELF
+// ============================================================================
+function TitleShelfDisplay() {
+  const bottles = useRef(null);
+  if (!bottles.current) {
+    const rng = seededRandom(777);
+    bottles.current = Array.from({ length: 24 }, (_, i) => ({
+      shapeIdx: Math.floor(rng() * BOTTLE_SHAPES.length),
+      color: BOTTLE_COLORS[Math.floor(rng() * BOTTLE_COLORS.length)],
+      capColor: CAP_COLORS[Math.floor(rng() * CAP_COLORS.length)],
+      x: (i % 8) * 72 + 20 + (rng() * 12 - 6),
+      row: Math.floor(i / 8),
+    }));
+  }
+  const bs = bottles.current;
+  const shelfY = [90, 210, 330];
+  return (
+    <svg viewBox="0 0 620 420" style={{ width: "100%", maxWidth: "620px" }}>
+      <rect x="0" y="0" width="620" height="420" rx="8" fill="#1a1510" />
+      <defs>
+        <linearGradient id="shG" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#5a3d20" /><stop offset="100%" stopColor="#2a1a08" /></linearGradient>
+        <linearGradient id="shF" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#6a4a28" /><stop offset="100%" stopColor="#4a3018" /></linearGradient>
+        <filter id="bSh"><feDropShadow dx="1" dy="2" stdDeviation="2" floodOpacity="0.5" /></filter>
+      </defs>
+      {shelfY.map((sy, row) => (
+        <g key={row}>
+          <rect x="10" y={sy} width="600" height="10" rx="2" fill="url(#shG)" />
+          <rect x="8" y={sy + 8} width="604" height="6" rx="1" fill="url(#shF)" />
+          <rect x="30" y={sy + 8} width="8" height="16" rx="1" fill="#3d2810" />
+          <rect x="582" y={sy + 8} width="8" height="16" rx="1" fill="#3d2810" />
+          {bs.filter(b => b.row === row).map((b, i) => (
+            <g key={i} transform={`translate(${b.x}, ${sy - 68}) scale(0.42)`} filter="url(#bSh)">
+              <g dangerouslySetInnerHTML={{ __html: (BOTTLE_SHAPES[b.shapeIdx] || BOTTLE_SHAPES[0])(b.color, b.capColor) }} />
+            </g>
+          ))}
+        </g>
+      ))}
+      <rect x="2" y="2" width="616" height="416" rx="8" fill="none" stroke="#5a3d20" strokeWidth="4" />
+    </svg>
+  );
+}
+
+// ============================================================================
+// STOREFRONT SVG
+// ============================================================================
+// ============================================================================
+// STOREFRONT TIER DATA & DESCRIPTIONS
+// ============================================================================
+const STORE_TIERS = [
+  { name: "The Shack", desc: "A ramshackle roadside lean-to with a hand-painted sign, a single dusty window, and a door that sticks. There's barely room for you and a shelf — but everyone starts somewhere." },
+  { name: "Mom & Pop Shop", desc: "A proper little storefront now. Two windows, a working door, and an awning that mostly keeps the rain off. The neighborhood is starting to notice." },
+  { name: "Boutique Store", desc: "Clean brick facade, polished windows with tasteful displays, and a sign that actually lights up at night. Collectors are starting to make the trip." },
+  { name: "Premium Establishment", desc: "A handsome two-story building with arched windows, gas-lamp fixtures, and a reputation that precedes it. Serious collectors know your name." },
+  { name: "Grand Emporium", desc: "An imposing corner building with ornate stonework, a grand entrance, and floor-to-ceiling display cases. You're a destination, not a detour." },
+  { name: "Distillery Estate", desc: "A sprawling estate with copper pot stills visible through massive windows, barrel warehouses, tasting rooms, and your name in wrought iron above the gate. You've built an empire." },
+];
+
+// ============================================================================
+// ECONOMY SYSTEM
+// ============================================================================
+const ECONOMY_TIERS = [
+  { shelfLimit: 8,   weeklyRent: 50,   customersPerDay: [3, 6],  upgradeCost: 0,      repRequired: 0 },
+  { shelfLimit: 18,  weeklyRent: 150,  customersPerDay: [4, 7],  upgradeCost: 2500,   repRequired: 50 },
+  { shelfLimit: 35,  weeklyRent: 350,  customersPerDay: [5, 8],  upgradeCost: 8000,   repRequired: 150 },
+  { shelfLimit: 60,  weeklyRent: 700,  customersPerDay: [6, 10], upgradeCost: 25000,  repRequired: 350 },
+  { shelfLimit: 100, weeklyRent: 1500, customersPerDay: [8, 12], upgradeCost: 75000,  repRequired: 700 },
+  { shelfLimit: 200, weeklyRent: 3500, customersPerDay: [10, 16], upgradeCost: 200000, repRequired: 1500 },
+];
+
+const STARTING_CASH = 500;
+const MAX_MISSED_RENT = 3; // grace period before game over
+const REP_PER_GOOD_DEAL = 2;
+const REP_PER_GREAT_DEAL = 5;
+
+function StorefrontSVG({ storeName, tier = 1 }) {
+  const t = Math.max(1, Math.min(6, tier));
+  // Shared defs
+  const defs = `
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1a1a2e" /><stop offset="100%" stop-color="#2d2040" /></linearGradient>
+    <linearGradient id="brick" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#5a3828" /><stop offset="100%" stop-color="#4a2818" /></linearGradient>
+    <linearGradient id="brickClean" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#6a4030" /><stop offset="100%" stop-color="#5a3020" /></linearGradient>
+    <linearGradient id="stone" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#6a6560" /><stop offset="100%" stop-color="#504a45" /></linearGradient>
+    <linearGradient id="roof" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3a3a3a" /><stop offset="100%" stop-color="#2a2a2a" /></linearGradient>
+    <linearGradient id="wGlow" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#D4AF3740" /><stop offset="100%" stop-color="#8B6914" /></linearGradient>
+    <linearGradient id="copper" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#B87333" /><stop offset="100%" stop-color="#8B5A2B" /></linearGradient>
+    <filter id="sGlow"><feGaussianBlur stdDeviation="3" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+  `;
+
+  const stars = [...Array(20)].map((_, i) =>
+    `<circle cx="${30 + (i * 37) % 660}" cy="${10 + (i * 23) % 100}" r="${0.5 + (i % 3) * 0.5}" fill="#fff" opacity="${0.3 + (i % 4) * 0.15}" />`
+  ).join("");
+
+  const sidewalk = `
+    <rect x="0" y="350" width="700" height="70" fill="#4a4440" />
+    <rect x="0" y="350" width="700" height="2" fill="#5a5450" />
+    ${[...Array(8)].map((_, i) => `<line x1="${i * 90 + 45}" y1="350" x2="${i * 90 + 45}" y2="420" stroke="#3a3830" stroke-width="1" />`).join("")}
+  `;
+
+  const brickLines = (x, y, w, h, cols) => {
+    const rows = Math.floor(h / 16);
+    return [...Array(rows)].map((_, row) =>
+      `<line x1="${x}" y1="${y + 10 + row * 16}" x2="${x + w}" y2="${y + 10 + row * 16}" stroke="#3a201080" stroke-width="0.8" />` +
+      [...Array(cols)].map((_, col) =>
+        `<line x1="${x + 20 + col * (w / cols) + (row % 2 ? w / cols / 2 : 0)}" y1="${y + row * 16}" x2="${x + 20 + col * (w / cols) + (row % 2 ? w / cols / 2 : 0)}" y2="${y + 16 + row * 16}" stroke="#3a201060" stroke-width="0.6" />`
+      ).join("")
+    ).join("");
+  };
+
+  let buildingSvg = "";
+
+  if (t === 1) {
+    // TIER 1: The Shack — tiny leaning structure, corrugated roof, one small window
+    buildingSvg = `
+      <!-- Shack body - slightly leaning -->
+      <polygon points="240,200 470,195 475,350 235,350" fill="#4a3828" stroke="#3a2818" stroke-width="2" />
+      <!-- Weathered wood planks -->
+      ${[...Array(8)].map((_, i) => `<line x1="240" y1="${208 + i * 18}" x2="472" y2="${203 + i * 18}" stroke="#3a201040" stroke-width="1" />`).join("")}
+      <!-- Corrugated tin roof - slightly crooked -->
+      <polygon points="220,200 350,148 490,195 240,200" fill="#5a5a58" stroke="#4a4a48" stroke-width="1.5" />
+      ${[...Array(12)].map((_, i) => `<line x1="${228 + i * 22}" y1="${198 - (i < 6 ? i * 3.5 : (11 - i) * 3.5)}" x2="${228 + i * 22}" y2="${200 - i * 0.4}" stroke="#6a6a6840" stroke-width="2" />`).join("")}
+      <!-- Rust patches on roof -->
+      <ellipse cx="300" cy="178" rx="15" ry="5" fill="#6a402820" />
+      <ellipse cx="420" cy="190" rx="10" ry="4" fill="#6a402815" />
+      <!-- Single small window -->
+      <rect x="270" y="240" width="55" height="55" rx="2" fill="url(#wGlow)" stroke="#2a1a08" stroke-width="2.5" />
+      <line x1="297" y1="240" x2="297" y2="295" stroke="#2a1a0880" stroke-width="1.5" />
+      <line x1="270" y1="267" x2="325" y2="267" stroke="#2a1a0880" stroke-width="1.5" />
+      <!-- A few bottles visible -->
+      <rect x="278" y="274" width="5" height="14" rx="1" fill="#3D2314" />
+      <rect x="286" y="278" width="5" height="10" rx="1" fill="#4a3728" />
+      <rect x="306" y="276" width="5" height="12" rx="1" fill="#2D1810" />
+      <!-- Door - weathered, slightly askew -->
+      <rect x="370" y="244" width="52" height="106" rx="2" fill="#2a1a08" stroke="#1a1000" stroke-width="2.5" />
+      <rect x="374" y="249" width="44" height="40" rx="1" fill="#D4AF3710" stroke="#3a281050" stroke-width="1" />
+      <circle cx="414" cy="305" r="3" fill="#B8860B90" />
+      <!-- Hand-painted sign on plywood -->
+      <rect x="255" y="204" width="200" height="30" rx="2" fill="#3d2d1c" stroke="#2a1a0c" stroke-width="1.5" />
+      <text x="355" y="225" text-anchor="middle" fill="#D4AF37" font-size="14" font-family="Georgia, serif" font-weight="bold" opacity="0.85">
+        ${storeName.length > 18 ? storeName.slice(0, 18) + "..." : storeName}
+      </text>
+      <!-- Cracks and damage -->
+      <line x1="460" y1="220" x2="468" y2="280" stroke="#2a180840" stroke-width="1.5" />
+      <line x1="468" y1="280" x2="472" y2="320" stroke="#2a180830" stroke-width="1" />
+      <line x1="245" y1="310" x2="240" y2="350" stroke="#2a180830" stroke-width="1" />
+      <!-- Puddle -->
+      <ellipse cx="320" cy="370" rx="35" ry="5" fill="#3a3a4a25" />
+      <!-- Weeds at base -->
+      <path d="M235 350 Q232 340 228 350" fill="none" stroke="#3a5a20" stroke-width="1" />
+      <path d="M238 350 Q240 336 244 350" fill="none" stroke="#3a5a20" stroke-width="1" />
+      <path d="M475 350 Q478 338 480 350" fill="none" stroke="#3a5a20" stroke-width="1" />
+    `;
+  } else if (t === 2) {
+    // TIER 2: Mom & Pop Shop — small brick, basic awning, two windows, door
+    buildingSvg = `
+      <rect x="160" y="150" width="380" height="202" fill="url(#brick)" />
+      ${brickLines(160, 150, 380, 202, 10)}
+      <polygon points="140,150 350,85 560,150" fill="url(#roof)" stroke="#2a2a2a" stroke-width="2" />
+      <rect x="140" y="146" width="420" height="8" fill="#4a4a4a" />
+      <rect x="180" y="240" width="340" height="26" rx="2" fill="#6a3020" />
+      ${[...Array(11)].map((_, i) => `<rect x="${180 + i * 31}" y="240" width="15" height="26" fill="#802820" opacity="0.4" />`).join("")}
+      <path d="M180 266 Q240 276 310 266 Q380 256 450 266 Q490 272 520 266" fill="none" stroke="#6a3020" stroke-width="3" />
+      <rect x="210" y="158" width="280" height="50" rx="4" fill="#1a1208" stroke="#D4AF37" stroke-width="2" />
+      <text x="350" y="190" text-anchor="middle" fill="#D4AF37" font-size="20" font-family="Georgia, serif" font-weight="bold" filter="url(#sGlow)">
+        ${storeName.length > 20 ? storeName.slice(0, 20) + "..." : storeName}
+      </text>
+      <rect x="190" y="275" width="110" height="75" rx="3" fill="url(#wGlow)" stroke="#2a1a08" stroke-width="3" />
+      <line x1="245" y1="275" x2="245" y2="350" stroke="#2a1a0880" stroke-width="2" />
+      <line x1="190" y1="312" x2="300" y2="312" stroke="#2a1a0880" stroke-width="2" />
+      ${[[198,320,7,18],[210,324,7,14],[222,318,7,20],[254,322,7,16],[266,317,7,21],[278,324,7,14]].map(([x,y,w,h],i) =>
+        `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1" fill="${BOTTLE_COLORS[i % BOTTLE_COLORS.length]}" />`
+      ).join("")}
+      <rect x="400" y="275" width="110" height="75" rx="3" fill="url(#wGlow)" stroke="#2a1a08" stroke-width="3" />
+      <line x1="455" y1="275" x2="455" y2="350" stroke="#2a1a0880" stroke-width="2" />
+      <line x1="400" y1="312" x2="510" y2="312" stroke="#2a1a0880" stroke-width="2" />
+      ${[[408,320,7,18],[420,324,7,14],[432,318,7,20],[464,322,7,16],[476,317,7,21],[488,324,7,14]].map(([x,y,w,h],i) =>
+        `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1" fill="${BOTTLE_COLORS[(i+4) % BOTTLE_COLORS.length]}" />`
+      ).join("")}
+      <rect x="325" y="272" width="50" height="80" rx="2" fill="#2a1a08" stroke="#1a1000" stroke-width="3" />
+      <rect x="330" y="277" width="40" height="32" rx="1" fill="#D4AF3715" stroke="#3a2810" stroke-width="1" />
+      <circle cx="365" cy="320" r="3" fill="#B8860B" />
+      <line x1="175" y1="210" x2="170" y2="240" stroke="#3a201040" stroke-width="1.5" />
+      <line x1="528" y1="190" x2="533" y2="220" stroke="#3a201040" stroke-width="1" />
+      <ellipse cx="280" cy="378" rx="25" ry="5" fill="#3a3a4a20" />
+      <rect x="335" y="282" width="28" height="12" rx="2" fill="#1a1208" stroke="#D4AF3780" stroke-width="0.5" />
+      <text x="349" y="292" text-anchor="middle" fill="#D4AF37" font-size="5.5" font-family="monospace" font-weight="bold">OPEN</text>
+    `;
+  } else if (t === 3) {
+    // TIER 3: Boutique Store — clean brick, nice sign, lit windows, planter boxes
+    buildingSvg = `
+      <rect x="140" y="130" width="420" height="222" fill="url(#brickClean)" />
+      ${brickLines(140, 130, 420, 222, 11)}
+      <rect x="130" y="126" width="440" height="8" fill="#5a5450" />
+      <rect x="130" y="120" width="440" height="8" fill="#6a6460" />
+      <rect x="165" y="230" width="370" height="28" rx="2" fill="#4a2018" />
+      ${[...Array(12)].map((_, i) => `<rect x="${165 + i * 31}" y="230" width="15" height="28" fill="#5a2818" opacity="0.4" />`).join("")}
+      <path d="M165 258 Q230 268 320 258 Q410 248 500 258 Q520 262 535 258" fill="none" stroke="#4a2018" stroke-width="2" />
+      <!-- Lit sign -->
+      <rect x="190" y="138" width="320" height="55" rx="4" fill="#0e0a04" stroke="#D4AF37" stroke-width="2.5" />
+      <rect x="194" y="142" width="312" height="47" rx="2" fill="none" stroke="#D4AF3770" stroke-width="1" />
+      <text x="350" y="174" text-anchor="middle" fill="#D4AF37" font-size="22" font-family="Georgia, serif" font-weight="bold" filter="url(#sGlow)">
+        ${storeName.length > 22 ? storeName.slice(0, 22) + "..." : storeName}
+      </text>
+      <!-- Three windows -->
+      <rect x="165" y="268" width="100" height="82" rx="3" fill="url(#wGlow)" stroke="#2a1a08" stroke-width="3" />
+      <line x1="215" y1="268" x2="215" y2="350" stroke="#2a1a0880" stroke-width="2" />
+      <rect x="440" y="268" width="100" height="82" rx="3" fill="url(#wGlow)" stroke="#2a1a08" stroke-width="3" />
+      <line x1="490" y1="268" x2="490" y2="350" stroke="#2a1a0880" stroke-width="2" />
+      <!-- Center display window — larger -->
+      <rect x="290" y="268" width="120" height="82" rx="3" fill="url(#wGlow)" stroke="#2a1a08" stroke-width="3" />
+      <line x1="350" y1="268" x2="350" y2="350" stroke="#2a1a0880" stroke-width="1.5" />
+      <!-- Bottles in center window -->
+      ${[[298,320,6,18],[308,324,6,14],[318,318,6,20],[330,322,6,16],[358,318,6,20],[368,324,6,14],[378,320,6,18],[388,316,6,22]].map(([x,y,w,h],i) =>
+        `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1" fill="${BOTTLE_COLORS[i % BOTTLE_COLORS.length]}" />`
+      ).join("")}
+      <!-- Door -->
+      <rect x="195" y="268" width="70" height="82" rx="2" fill="#2a1a08" stroke="#1a1000" stroke-width="3" />
+      <rect x="200" y="273" width="28" height="36" rx="1" fill="#D4AF3718" stroke="#3a2810" stroke-width="1" />
+      <rect x="232" y="273" width="28" height="36" rx="1" fill="#D4AF3718" stroke="#3a2810" stroke-width="1" />
+      <circle cx="255" cy="318" r="3.5" fill="#D4AF37" />
+      <!-- Planter boxes -->
+      <rect x="168" y="350" width="30" height="12" rx="2" fill="#5a3d20" />
+      <ellipse cx="175" cy="348" rx="5" ry="6" fill="#2a5a20" /><ellipse cx="183" cy="346" rx="6" ry="7" fill="#3a6a28" /><ellipse cx="191" cy="348" rx="5" ry="6" fill="#2a5a20" />
+      <rect x="505" y="350" width="30" height="12" rx="2" fill="#5a3d20" />
+      <ellipse cx="512" cy="348" rx="5" ry="6" fill="#2a5a20" /><ellipse cx="520" cy="346" rx="6" ry="7" fill="#3a6a28" /><ellipse cx="528" cy="348" rx="5" ry="6" fill="#2a5a20" />
+    `;
+  } else if (t === 4) {
+    // TIER 4: Premium Establishment — two-story, arched windows, gas lamps
+    buildingSvg = `
+      <rect x="120" y="90" width="460" height="262" fill="url(#brickClean)" />
+      ${brickLines(120, 90, 460, 262, 12)}
+      <rect x="110" y="86" width="480" height="8" fill="#6a6460" />
+      <rect x="115" y="80" width="470" height="8" fill="#7a7470" />
+      <!-- Crown molding -->
+      <rect x="110" y="78" width="480" height="4" fill="#8a8480" />
+      <!-- Floor divider -->
+      <rect x="120" y="198" width="460" height="6" fill="#6a5a50" />
+      <!-- Upper arched windows -->
+      ${[180, 280, 380, 480].map(x => `
+        <rect x="${x}" y="108" width="50" height="70" rx="2" fill="url(#wGlow)" stroke="#2a1a08" stroke-width="2.5" />
+        <ellipse cx="${x + 25}" cy="108" rx="25" ry="12" fill="url(#wGlow)" stroke="#2a1a08" stroke-width="2.5" />
+        <line x1="${x + 25}" y1="96" x2="${x + 25}" y2="178" stroke="#2a1a0860" stroke-width="1.5" />
+      `).join("")}
+      <!-- Awning -->
+      <rect x="145" y="225" width="410" height="25" rx="2" fill="#3a1810" />
+      <!-- Sign -->
+      <rect x="180" y="200" width="340" height="50" rx="5" fill="#0e0a04" stroke="#D4AF37" stroke-width="2.5" />
+      <rect x="184" y="204" width="332" height="42" rx="3" fill="none" stroke="#D4AF3770" stroke-width="1" />
+      <text x="350" y="232" text-anchor="middle" fill="#D4AF37" font-size="22" font-family="Georgia, serif" font-weight="bold" filter="url(#sGlow)">
+        ${storeName.length > 22 ? storeName.slice(0, 22) + "..." : storeName}
+      </text>
+      <!-- Lower windows -->
+      <rect x="150" y="260" width="120" height="90" rx="3" fill="url(#wGlow)" stroke="#2a1a08" stroke-width="3" />
+      <line x1="210" y1="260" x2="210" y2="350" stroke="#2a1a0880" stroke-width="2" />
+      <rect x="430" y="260" width="120" height="90" rx="3" fill="url(#wGlow)" stroke="#2a1a08" stroke-width="3" />
+      <line x1="490" y1="260" x2="490" y2="350" stroke="#2a1a0880" stroke-width="2" />
+      <!-- Door (grander) -->
+      <rect x="310" y="256" width="80" height="96" rx="3" fill="#1a1008" stroke="#D4AF3780" stroke-width="2.5" />
+      <line x1="350" y1="256" x2="350" y2="352" stroke="#D4AF3740" stroke-width="1" />
+      <rect x="316" y="262" width="28" height="40" rx="1" fill="#D4AF3718" stroke="#3a2810" stroke-width="1" />
+      <rect x="356" y="262" width="28" height="40" rx="1" fill="#D4AF3718" stroke="#3a2810" stroke-width="1" />
+      <circle cx="346" cy="315" r="3.5" fill="#D4AF37" /><circle cx="354" cy="315" r="3.5" fill="#D4AF37" />
+      <!-- Gas lamps -->
+      ${[140, 555].map(x => `
+        <rect x="${x}" y="230" width="6" height="40" fill="#1a1a1a" />
+        <rect x="${x - 4}" y="224" width="14" height="10" rx="3" fill="#1a1a1a" />
+        <ellipse cx="${x + 3}" cy="226" rx="4" ry="3" fill="#D4AF3760" />
+      `).join("")}
+    `;
+  } else if (t === 5) {
+    // TIER 5: Grand Emporium — wide corner building, ornate stonework, grand entrance
+    buildingSvg = `
+      <rect x="80" y="80" width="540" height="272" fill="url(#stone)" />
+      ${brickLines(80, 80, 540, 272, 14)}
+      <!-- Ornate top -->
+      <rect x="70" y="72" width="560" height="12" fill="#7a7570" />
+      <rect x="75" y="68" width="550" height="6" fill="#8a8580" />
+      ${[...Array(10)].map((_, i) => `<rect x="${95 + i * 55}" y="58" width="12" height="14" rx="2" fill="#7a7570" />`).join("")}
+      <!-- Floor divider -->
+      <rect x="80" y="190" width="540" height="6" fill="#8a8080" />
+      <!-- Upper floor windows — arched, ornate -->
+      ${[130, 220, 310, 400, 490].map(x => `
+        <rect x="${x}" y="100" width="55" height="72" rx="2" fill="url(#wGlow)" stroke="#3a3530" stroke-width="2.5" />
+        <ellipse cx="${x + 27.5}" cy="100" rx="27.5" ry="14" fill="url(#wGlow)" stroke="#3a3530" stroke-width="2.5" />
+        <rect x="${x - 4}" y="168" width="63" height="6" rx="1" fill="#7a7570" />
+      `).join("")}
+      <!-- Grand canopy -->
+      <rect x="105" y="220" width="490" height="28" rx="3" fill="#2a1810" stroke="#3a2818" stroke-width="1" />
+      <rect x="105" y="246" width="490" height="4" fill="#D4AF3730" />
+      <!-- Sign -->
+      <rect x="170" y="196" width="360" height="48" rx="5" fill="#0a0804" stroke="#D4AF37" stroke-width="3" />
+      <text x="350" y="228" text-anchor="middle" fill="#D4AF37" font-size="24" font-family="Georgia, serif" font-weight="bold" filter="url(#sGlow)">
+        ${storeName.length > 22 ? storeName.slice(0, 22) + "..." : storeName}
+      </text>
+      <!-- Grand floor-to-ceiling display windows -->
+      <rect x="110" y="258" width="150" height="92" rx="3" fill="url(#wGlow)" stroke="#3a3530" stroke-width="3" />
+      <line x1="185" y1="258" x2="185" y2="350" stroke="#3a353060" stroke-width="2" />
+      <rect x="440" y="258" width="150" height="92" rx="3" fill="url(#wGlow)" stroke="#3a3530" stroke-width="3" />
+      <line x1="515" y1="258" x2="515" y2="350" stroke="#3a353060" stroke-width="2" />
+      <!-- Grand entrance -->
+      <rect x="290" y="252" width="120" height="100" rx="4" fill="#1a1008" stroke="#D4AF3780" stroke-width="3" />
+      <ellipse cx="350" cy="258" rx="56" ry="20" fill="#1a1008" stroke="#D4AF3780" stroke-width="2" />
+      <line x1="350" y1="238" x2="350" y2="352" stroke="#D4AF3730" stroke-width="1.5" />
+      <circle cx="342" cy="312" r="4" fill="#D4AF37" /><circle cx="358" cy="312" r="4" fill="#D4AF37" />
+      <!-- Columns -->
+      ${[280, 405].map(x => `
+        <rect x="${x}" y="252" width="14" height="100" fill="#8a8580" />
+        <rect x="${x - 3}" y="248" width="20" height="8" rx="1" fill="#9a9590" />
+        <rect x="${x - 3}" y="348" width="20" height="6" rx="1" fill="#9a9590" />
+      `).join("")}
+      <!-- Lamp posts -->
+      ${[90, 608].map(x => `
+        <rect x="${x}" y="260" width="6" height="92" fill="#2a2a2a" />
+        <rect x="${x - 6}" y="252" width="18" height="12" rx="4" fill="#2a2a2a" />
+        <ellipse cx="${x + 3}" cy="254" rx="5" ry="4" fill="#D4AF3770" />
+      `).join("")}
+    `;
+  } else {
+    // TIER 6: Distillery Estate — sprawling, copper stills, barrel house, wrought iron
+    buildingSvg = `
+      <!-- Main building -->
+      <rect x="50" y="100" width="400" height="252" fill="url(#stone)" />
+      ${brickLines(50, 100, 400, 252, 10)}
+      <rect x="40" y="92" width="420" height="12" fill="#7a7570" />
+      ${[...Array(8)].map((_, i) => `<rect x="${60 + i * 52}" y="80" width="14" height="16" rx="2" fill="#7a7570" />`).join("")}
+      <!-- Barrel warehouse wing -->
+      <rect x="450" y="160" width="200" height="192" fill="#5a3828" />
+      ${brickLines(450, 160, 200, 192, 5)}
+      <rect x="445" y="155" width="210" height="8" fill="#6a4838" />
+      <!-- Warehouse roof -->
+      <polygon points="445,160 550,120 660,160" fill="url(#roof)" stroke="#2a2a2a" stroke-width="1.5" />
+      <!-- Main roof with cupola -->
+      <rect x="40" y="88" width="420" height="6" fill="#8a8480" />
+      <rect x="200" y="60" width="100" height="32" rx="2" fill="#7a7570" />
+      <polygon points="196,62 250,38 304,62" fill="url(#roof)" stroke="#2a2a2a" stroke-width="1" />
+      <!-- Copper still visible through upper windows -->
+      ${[100, 200, 300].map(x => `
+        <rect x="${x}" y="110" width="60" height="70" rx="2" fill="url(#wGlow)" stroke="#3a3530" stroke-width="2.5" />
+        <ellipse cx="${x + 30}" cy="110" rx="30" ry="12" fill="url(#wGlow)" stroke="#3a3530" stroke-width="2.5" />
+      `).join("")}
+      <!-- Copper pot stills visible inside -->
+      <ellipse cx="130" cy="145" rx="14" ry="20" fill="url(#copper)" opacity="0.6" />
+      <rect x="126" y="126" width="8" height="18" rx="2" fill="url(#copper)" opacity="0.5" />
+      <ellipse cx="230" cy="148" rx="12" ry="18" fill="url(#copper)" opacity="0.5" />
+      <ellipse cx="330" cy="145" rx="14" ry="20" fill="url(#copper)" opacity="0.6" />
+      <!-- Floor divider -->
+      <rect x="50" y="198" width="400" height="6" fill="#8a8080" />
+      <!-- Sign — wrought iron style -->
+      <rect x="100" y="202" width="300" height="44" rx="5" fill="#0a0804" stroke="#D4AF37" stroke-width="3" />
+      <text x="250" y="232" text-anchor="middle" fill="#D4AF37" font-size="22" font-family="Georgia, serif" font-weight="bold" filter="url(#sGlow)">
+        ${storeName.length > 20 ? storeName.slice(0, 20) + "..." : storeName}
+      </text>
+      <text x="250" y="242" text-anchor="middle" fill="#D4AF3790" font-size="7" font-family="monospace">DISTILLERY &amp; RARE SPIRITS</text>
+      <!-- Lower windows and grand entrance -->
+      <rect x="80" y="260" width="120" height="90" rx="3" fill="url(#wGlow)" stroke="#3a3530" stroke-width="3" />
+      <rect x="290" y="260" width="120" height="90" rx="3" fill="url(#wGlow)" stroke="#3a3530" stroke-width="3" />
+      <!-- Grand double doors -->
+      <rect x="215" y="250" width="65" height="102" rx="3" fill="#1a1008" stroke="#D4AF3780" stroke-width="3" />
+      <ellipse cx="247" cy="255" rx="30" ry="14" fill="#1a1008" stroke="#D4AF3780" stroke-width="2" />
+      <line x1="247" y1="241" x2="247" y2="352" stroke="#D4AF3730" stroke-width="1.5" />
+      <circle cx="240" cy="310" r="4" fill="#D4AF37" /><circle cx="254" cy="310" r="4" fill="#D4AF37" />
+      <!-- Barrel warehouse doors -->
+      <rect x="500" y="260" width="60" height="90" rx="2" fill="#3a2010" stroke="#2a1808" stroke-width="2" />
+      <rect x="565" y="260" width="60" height="90" rx="2" fill="#3a2010" stroke="#2a1808" stroke-width="2" />
+      <!-- Barrels visible -->
+      ${[480, 510, 540, 570, 600].map((x, i) => `
+        <ellipse cx="${x}" cy="${215 + (i % 2) * 22}" rx="18" ry="12" fill="#5a3d20" stroke="#3a2810" stroke-width="1" />
+        <line x1="${x - 14}" y1="${215 + (i % 2) * 22}" x2="${x + 14}" y2="${215 + (i % 2) * 22}" stroke="#3a281060" stroke-width="0.8" />
+      `).join("")}
+      <!-- Wrought iron fence -->
+      <line x1="30" y1="350" x2="670" y2="350" stroke="#2a2a2a" stroke-width="2" />
+      ${[...Array(16)].map((_, i) => `
+        <line x1="${50 + i * 40}" y1="340" x2="${50 + i * 40}" y2="354" stroke="#2a2a2a" stroke-width="2" />
+        <circle cx="${50 + i * 40}" cy="338" r="2" fill="#2a2a2a" />
+      `).join("")}
+      <!-- Chimney with smoke -->
+      <rect x="380" y="55" width="24" height="40" fill="#5a5450" />
+      <ellipse cx="392" cy="50" rx="8" ry="4" fill="#5a545060" />
+      <ellipse cx="395" cy="42" rx="6" ry="3" fill="#5a545040" />
+      <ellipse cx="390" cy="35" rx="5" ry="3" fill="#5a545020" />
+    `;
+  }
+
+  const svgContent = `
+    <rect width="700" height="420" fill="url(#sky)" />
+    ${stars}
+    ${sidewalk}
+    ${buildingSvg}
+  `;
+
+  return (
+    <svg viewBox="0 0 700 420" style={{ width: "100%", maxWidth: "700px" }}
+      dangerouslySetInnerHTML={{ __html: `<defs>${defs}</defs>${svgContent}` }} />
+  );
+}
+
+// ============================================================================
+// OPTIONS MENU
+// ============================================================================
+const volBtnStyle = { width: "32px", height: "32px", border: "1px solid #3a3028", borderRadius: "6px", background: "#1a1510", color: "#D4AF37", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 };
+const menuBtnStyle = { padding: "14px 32px", background: "linear-gradient(145deg, #D4AF37, #B8960C)", border: "none", borderRadius: "8px", color: "#1a1a1a", fontSize: "14px", fontWeight: "bold", fontFamily: "'Playfair Display', Georgia, serif", cursor: "pointer", letterSpacing: "1px", boxShadow: "0 4px 12px rgba(212,175,55,0.3)", transition: "all 0.2s" };
+
+function OptionsMenu({ audio, onClose, onSfxChange, onMusicChange }) {
+  const steps = [0, 0.25, 0.50, 0.75, 1.0];
+  const [sfxVol, setSfxVol] = useState(audio.sfxVolume);
+  const [musVol, setMusVol] = useState(audio.musicVolume);
+  const handleSfx = (v) => { setSfxVol(v); onSfxChange(v); };
+  const handleMus = (v) => { setMusVol(v); onMusicChange(v); };
+  const VolControl = ({ label, value, onChange }) => (
+    <div style={{ marginBottom: "20px" }}>
+      <div style={{ fontFamily: "monospace", fontSize: "12px", color: "#8B7355", letterSpacing: "1px", marginBottom: "10px" }}>{label}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <button onClick={() => { const i = steps.indexOf(value); if (i > 0) onChange(steps[i - 1]); }} style={volBtnStyle} disabled={value <= 0}>
+          <svg width="16" height="16" viewBox="0 0 16 16"><rect x="3" y="7" width="10" height="2" fill="currentColor" /></svg>
+        </button>
+        <div style={{ flex: 1, height: "8px", background: "#1a1510", borderRadius: "4px", overflow: "hidden" }}>
+          <div style={{ width: `${value * 100}%`, height: "100%", background: "linear-gradient(90deg, #D4AF37, #B8960C)", borderRadius: "4px", transition: "width 0.2s" }} />
+        </div>
+        <button onClick={() => { const i = steps.indexOf(value); if (i < steps.length - 1) onChange(steps[i + 1]); }} style={volBtnStyle} disabled={value >= 1}>
+          <svg width="16" height="16" viewBox="0 0 16 16"><rect x="3" y="7" width="10" height="2" fill="currentColor" /><rect x="7" y="3" width="2" height="10" fill="currentColor" /></svg>
+        </button>
+        <span style={{ fontFamily: "monospace", fontSize: "14px", color: "#D4AF37", width: "40px", textAlign: "right" }}>{Math.round(value * 100)}%</span>
+      </div>
+    </div>
+  );
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
+      <div style={{ background: "linear-gradient(145deg, #261f18, #1c1714)", borderRadius: "16px", padding: "32px", border: "2px solid #3a3028", width: "400px", maxWidth: "90vw" }}>
+        <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "#D4AF37", margin: "0 0 24px 0", fontSize: "24px", textAlign: "center" }}>Options</h2>
+        <VolControl label="SOUND EFFECTS" value={sfxVol} onChange={handleSfx} />
+        <VolControl label="MUSIC" value={musVol} onChange={handleMus} />
+        <div style={{ textAlign: "center", marginTop: "24px" }}><button onClick={onClose} style={menuBtnStyle}>BACK</button></div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// SAVE SLOT SCREEN
+// ============================================================================
+function SaveSlotScreen({ saves, onSelectSlot, onDeleteSlot, onBack }) {
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px", padding: "40px 20px" }}>
+      <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "#D4AF37", fontSize: "28px", margin: "0 0 8px 0" }}>Save Files</h2>
+      <p style={{ color: "#8B7355", fontSize: "13px", marginBottom: "16px", fontFamily: "monospace" }}>Select a slot to continue or start a new game</p>
+      {saves.map((save, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "center", gap: "12px", width: "100%", maxWidth: "460px" }}>
+          <button onClick={() => onSelectSlot(i)}
+            style={{ flex: 1, padding: "16px 20px", background: save ? "linear-gradient(145deg, #2a2218, #1a1510)" : "linear-gradient(145deg, #1a1510, #120e0a)",
+              border: save ? "2px solid #3a3028" : "2px dashed #3a302860", borderRadius: "12px", cursor: "pointer", textAlign: "left", color: "#C4A882", transition: "border-color 0.2s" }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = "#D4AF37"}
+            onMouseLeave={e => e.currentTarget.style.borderColor = save ? "#3a3028" : "#3a302860"}>
+            <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "16px", color: "#F5E6CA", marginBottom: "4px" }}>
+              {save ? save.storeName : `— Empty Slot ${i + 1} —`}
+            </div>
+            {save && <div style={{ fontFamily: "monospace", fontSize: "11px", color: "#8B7355" }}>
+              Day {save.day || 1} · {STORE_TIERS[(save.storeTier || 1) - 1].name} · Cash: ${(save.cash ?? 0).toLocaleString()} · Bottles: {save.inventory.length}
+            </div>}
+          </button>
+          {save && (
+            <div>
+              {confirmDelete === i ? (
+                <div style={{ display: "flex", gap: "6px" }}>
+                  <button onClick={() => { onDeleteSlot(i); setConfirmDelete(null); }}
+                    style={{ padding: "8px 12px", background: "#8B0000", border: "none", borderRadius: "6px", color: "#fff", fontSize: "11px", cursor: "pointer", fontFamily: "monospace" }}>YES</button>
+                  <button onClick={() => setConfirmDelete(null)}
+                    style={{ padding: "8px 12px", background: "#3a3028", border: "none", borderRadius: "6px", color: "#C4A882", fontSize: "11px", cursor: "pointer", fontFamily: "monospace" }}>NO</button>
+                </div>
+              ) : (
+                <button onClick={() => setConfirmDelete(i)}
+                  style={{ width: "40px", height: "40px", border: "1px solid #3a3028", borderRadius: "8px", background: "#1a1510", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, color: "#8B7355", transition: "color 0.2s" }}
+                  onMouseEnter={e => e.currentTarget.style.color = "#C0392B"} onMouseLeave={e => e.currentTarget.style.color = "#8B7355"} title="Delete save">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M3 6h18" /><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" /><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" /><line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+      <button onClick={onBack} style={{ ...menuBtnStyle, marginTop: "16px", background: "transparent", border: "2px solid #3a302860", color: "#8B7355" }}>BACK</button>
+    </div>
+  );
+}
+
+// ============================================================================
+// STORE NAME INPUT
+// ============================================================================
+function StoreNameScreen({ onSubmit }) {
+  const [name, setName] = useState("");
+  const ref = useRef(null);
+  useEffect(() => { ref.current?.focus(); }, []);
+  const go = () => { if (name.trim()) onSubmit(name.trim()); };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "80vh", padding: "40px 20px", textAlign: "center" }}>
+      <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "#D4AF37", fontSize: "28px", margin: "0 0 8px 0" }}>Name Your Store</h2>
+      <p style={{ color: "#8B7355", fontSize: "14px", marginBottom: "32px", maxWidth: "400px", lineHeight: 1.6 }}>Every great venture begins with a name. What will your rare whiskey establishment be called?</p>
+      <div style={{ display: "flex", gap: "12px", alignItems: "center", width: "100%", maxWidth: "440px" }}>
+        <input ref={ref} type="text" value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") go(); }} maxLength={30} placeholder="e.g. The Amber Archive"
+          style={{ flex: 1, padding: "14px 18px", background: "#1a1510", border: "2px solid #3a3028", borderRadius: "10px", color: "#F5E6CA", fontSize: "16px", fontFamily: "'Playfair Display', Georgia, serif", outline: "none", transition: "border-color 0.2s" }}
+          onFocus={e => e.target.style.borderColor = "#D4AF37"} onBlur={e => e.target.style.borderColor = "#3a3028"} />
+        <button onClick={go} disabled={!name.trim()} style={{ ...menuBtnStyle, opacity: name.trim() ? 1 : 0.4, cursor: name.trim() ? "pointer" : "not-allowed" }}>OPEN SHOP</button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// MAIN APP
+// ============================================================================
+function WhiskeyGame() {
+  const [screen, setScreen] = useState("title");
+  const [saves, setSaves] = useState([null, null, null]);
+  const [activeSlot, setActiveSlot] = useState(null);
+  const [showOptions, setShowOptions] = useState(false);
+  const [storeName, setStoreName] = useState("");
+  const [storeTier, setStoreTier] = useState(1);
+  const [inventory, setInventory] = useState([]);
+  const [cash, setCash] = useState(STARTING_CASH);
+  const [reputation, setReputation] = useState(0);
+  const [day, setDay] = useState(1);
+  const [missedRent, setMissedRent] = useState(0);
+  const [gameOver, setGameOver] = useState(false);
+  const [showDaySummary, setShowDaySummary] = useState(null); // { revenue, expenses, deals, dayNum }
+  const [showRentDue, setShowRentDue] = useState(null); // { amount, canPay }
+  const [showUpgradePanel, setShowUpgradePanel] = useState(false);
+  const [dailyLog, setDailyLog] = useState([]); // [{type, desc, amount}] for current day
+  const [offeredBottle, setOfferedBottle] = useState(null);
+  const [showRarity, setShowRarity] = useState(false);
+  const [activeTab, setActiveTab] = useState("storefront");
+  const [filterType, setFilterType] = useState("All");
+  const [sortBy, setSortBy] = useState("newest");
+
+  const engineRef = useRef(null);
+  const audioRef = useRef(null);
+  if (!audioRef.current) audioRef.current = new AudioManager();
+  const audio = audioRef.current;
+
+  const initEngine = useCallback((seed) => { engineRef.current = new WhiskeyEngine(seed || Date.now()); }, []);
+
+  const handleSelectSlot = useCallback((i) => {
+    const save = saves[i];
+    if (save) {
+      setActiveSlot(i); setStoreName(save.storeName); setStoreTier(save.storeTier || 1); setInventory(save.inventory);
+      setCash(save.cash ?? STARTING_CASH); setReputation(save.reputation ?? 0); setDay(save.day ?? 1); setMissedRent(save.missedRent ?? 0);
+      setGameOver(false); setDailyLog([]); setShowDaySummary(null); setShowRentDue(null);
+      initEngine(save.gameSeed);
+      if (save.engineBrands) engineRef.current.brands = save.engineBrands;
+      if (save.engineBrandNames) engineRef.current.brandNames = save.engineBrandNames;
+      if (save.engineBottleCache) engineRef.current.bottleCache = save.engineBottleCache;
+      setActiveTab("storefront"); setScreen("game");
+    } else {
+      setActiveSlot(i); initEngine(); setInventory([]); setCash(STARTING_CASH); setReputation(0); setDay(1); setMissedRent(0); setGameOver(false); setDailyLog([]); setStoreTier(1); setScreen("nameStore");
+    }
+    audio.playSfx("buttonClick");
+  }, [saves, initEngine, audio]);
+
+  const handleDeleteSlot = useCallback((i) => { setSaves(p => { const n = [...p]; n[i] = null; return n; }); audio.playSfx("buttonClick"); }, [audio]);
+  const handleNameSubmit = useCallback((name) => { setStoreName(name); setActiveTab("storefront"); setScreen("game"); audio.playSfx("buttonClick"); }, [audio]);
+
+  useEffect(() => {
+    if (screen === "game" && activeSlot !== null && engineRef.current) {
+      setSaves(p => { const n = [...p]; n[activeSlot] = { storeName, storeTier, inventory, cash, reputation, day, missedRent, gameSeed: engineRef.current.gameSeed, engineBrands: engineRef.current.brands, engineBrandNames: engineRef.current.brandNames, engineBottleCache: engineRef.current.bottleCache }; return n; });
+    }
+  }, [screen, activeSlot, storeName, storeTier, inventory, cash, reputation, day, missedRent]);
+
+  const engine = engineRef.current;
+  const tierData = ECONOMY_TIERS[storeTier - 1];
+  const shelfLimit = tierData.shelfLimit;
+  const canAfford = (price) => cash >= price;
+  const shelfFull = inventory.length >= shelfLimit;
+
+  // ---- CUSTOMER PERSONALITY SYSTEM ----
+  const PERSONALITIES = [
+    { name: "Desperate", maxRounds: 2, flexibility: 0.35, icon: "😰",
+      sellerLines: ["I really need to offload this...", "Look, I'll take what I can get.", "I'm in a bind here."],
+      buyerLines: ["I need this today, name your price.", "Fine, fine, whatever.", "Just wrap it up."],
+      counterLine: "Okay okay... how about", walkLine: "Ugh, forget it." },
+    { name: "Casual", maxRounds: 3, flexibility: 0.25, icon: "😊",
+      sellerLines: ["Hey, thought you might be interested.", "I found this in my grandfather's collection.", "Any interest in this one?"],
+      buyerLines: ["That looks nice, what are you asking?", "Hmm, I could see that on my shelf.", "What kind of deal can you give me?"],
+      counterLine: "How about we meet closer to", walkLine: "Nah, I'll pass. Thanks though." },
+    { name: "Shrewd", maxRounds: 4, flexibility: 0.15, icon: "🧐",
+      sellerLines: ["I know what this is worth.", "I've done my research on this bottle.", "This is a serious piece — price accordingly."],
+      buyerLines: ["I know the market on this.", "That's a bit steep for what it is.", "I can get this cheaper elsewhere."],
+      counterLine: "We both know the fair price is closer to", walkLine: "Not at that price. I'll find a better deal." },
+    { name: "Collector", maxRounds: 5, flexibility: 0.20, icon: "🎩",
+      sellerLines: ["This has been in my personal collection for years.", "I'm only selling because I need the space.", "It pains me to part with this one."],
+      buyerLines: ["I've been looking for exactly this.", "This would complete my collection.", "I'm willing to pay for quality."],
+      counterLine: "For a bottle like this, I'd say", walkLine: "I'll keep looking. The right one will come along." },
+    { name: "Impatient", maxRounds: 2, flexibility: 0.20, icon: "⏰",
+      sellerLines: ["Quick — you want this or not?", "I've got places to be.", "Make me an offer, fast."],
+      buyerLines: ["How much? I'm in a hurry.", "Give me a price, I don't have all day.", "Wrap it up quick."],
+      counterLine: "Last chance —", walkLine: "Too slow. I'm out." },
+    { name: "Friendly", maxRounds: 4, flexibility: 0.30, icon: "🤝",
+      sellerLines: ["Heard great things about your shop!", "A friend recommended I come here.", "I'd love to do business with you."],
+      buyerLines: ["I trust your recommendations.", "What would you suggest for me?", "I'm happy to pay fairly."],
+      counterLine: "You're good people — how about", walkLine: "Maybe next time, friend." },
+  ];
+
+  // ---- CUSTOMER QUEUE SYSTEM ----
+  const [customerQueue, setCustomerQueue] = useState([]);
+  const [customerIndex, setCustomerIndex] = useState(0);
+  const [currentCustomer, setCurrentCustomer] = useState(null);
+  const [dayStarted, setDayStarted] = useState(false);
+  const [selectedSellBottle, setSelectedSellBottle] = useState(null);
+
+  // ---- NEGOTIATION STATE ----
+  const [negotiating, setNegotiating] = useState(false);
+  const [negRound, setNegRound] = useState(0);
+  const [playerOffer, setPlayerOffer] = useState(0);
+  const [customerOffer, setCustomerOffer] = useState(0); // their current counter
+  const [negResult, setNegResult] = useState(null); // null | "accepted" | "rejected" | "countered" | "walked"
+  const [negHistory, setNegHistory] = useState([]); // [{who, amount, text}]
+
+  const FIRST_NAMES = ["James","Mary","Robert","Linda","Michael","Sarah","William","Karen","David","Lisa","Thomas","Nancy","John","Betty","Daniel","Sandra","Paul","Ruth","Mark","Helen","George","Laura","Frank","Anna","Ed","Carol","Tony","Marie","Victor","Grace"];
+  const LAST_NAMES = ["Smith","Johnson","Brown","Davis","Wilson","Moore","Taylor","Anderson","Thomas","Harris","Martin","Garcia","Lee","Clark","Lewis","Hall","Young","King","Wright","Hill","Scott","Green","Baker","Adams","Reed","Cook","Morgan","Bell","Ross","Wood"];
+
+  const generateCustomerName = useCallback((rng) => {
+    return `${FIRST_NAMES[Math.floor(rng() * FIRST_NAMES.length)]} ${LAST_NAMES[Math.floor(rng() * LAST_NAMES.length)]}`;
+  }, []);
+
+  const BUYER_REQUESTS = [
+    { text: "I'm looking for a good Bourbon.", filter: b => b.typeName === "Bourbon" },
+    { text: "Got any Rye whiskey?", filter: b => b.typeName === "Rye" },
+    { text: "I want something aged at least 10 years.", filter: b => b.age >= 10 },
+    { text: "Looking for something high proof.", filter: b => b.proof >= 110 },
+    { text: "I need a gift — something special.", filter: b => b.modifiers.length > 0 },
+    { text: "What's the oldest bottle you have?", filter: b => b.age >= 8 },
+    { text: "I'm after anything Bottled-in-Bond.", filter: b => b.modifiers.includes("Bottled-in-Bond") },
+    { text: "Show me what you've got — I'm open to anything.", filter: () => true },
+    { text: "I'm a barrel proof fanatic. Got any?", filter: b => b.modifiers.includes("Barrel Proof") },
+    { text: "Something smooth — nothing too hot.", filter: b => b.proof <= 100 },
+    { text: "I'm looking for a Single Barrel.", filter: b => b.modifiers.includes("Single Barrel") },
+    { text: "Any barrel-finished whiskeys in stock?", filter: b => b.modifiers.some(m => m.startsWith("Finished in")) },
+  ];
+
+  const generateDayQueue = useCallback(() => {
+    if (!engine) return [];
+    const rng = seededRandom(Date.now() + day * 777);
+    const [minC, maxC] = tierData.customersPerDay;
+    const numCustomers = minC + Math.floor(rng() * (maxC - minC + 1));
+    const queue = [];
+
+    for (let i = 0; i < numCustomers; i++) {
+      const name = generateCustomerName(rng);
+      const personality = PERSONALITIES[Math.floor(rng() * PERSONALITIES.length)];
+      const isSeller = inventory.length === 0 ? true : rng() < 0.55;
+
+      if (isSeller) {
+        const bottle = engine.generateBottle();
+        // Seller's hidden minimum: 40-85% of value depending on personality
+        const minAccept = Math.round(bottle.value * (0.40 + personality.flexibility * 0.5 + rng() * 0.25));
+        // Seller's asking price: 90-130% of value
+        const askingPrice = Math.round(bottle.value * (0.9 + rng() * 0.4));
+        const openLine = personality.sellerLines[Math.floor(rng() * personality.sellerLines.length)];
+        queue.push({ type: "seller", name, personality, bottle, minAccept, askingPrice, openLine });
+      } else {
+        const validRequests = BUYER_REQUESTS.filter(r => inventory.some(r.filter));
+        const request = validRequests.length > 0
+          ? validRequests[Math.floor(rng() * validRequests.length)]
+          : BUYER_REQUESTS[BUYER_REQUESTS.length - 1];
+        const matching = inventory.filter(request.filter);
+        const avgValue = matching.length > 0 ? matching.reduce((s, b) => s + b.value, 0) / matching.length : 50;
+        const budget = Math.round(avgValue * (0.7 + rng() * 0.8));
+        // Buyer's max willingness: budget + some flexibility
+        const maxPay = Math.round(budget * (1 + personality.flexibility * 0.5));
+        // Buyer's opening offer: 50-80% of budget
+        const openingOffer = Math.round(budget * (0.5 + rng() * 0.3));
+        const openLine = personality.buyerLines[Math.floor(rng() * personality.buyerLines.length)];
+        queue.push({ type: "buyer", name, personality, request: request.text, filter: request.filter, budget, maxPay, openingOffer, openLine });
+      }
+    }
+    return queue;
+  }, [engine, day, tierData, inventory, generateCustomerName]);
+
+  // --- Negotiation logic ---
+  const startNegotiation = useCallback((customer, targetPrice) => {
+    setNegotiating(true);
+    setNegRound(0);
+    setNegResult(null);
+    setNegHistory([]);
+    if (customer.type === "seller") {
+      // Seller states their asking price
+      setCustomerOffer(customer.askingPrice);
+      setPlayerOffer(Math.round(customer.askingPrice * 0.6)); // default slider position
+      setNegHistory([{ who: "customer", amount: customer.askingPrice, text: `"I'm looking to get $${customer.askingPrice.toLocaleString()} for this."` }]);
+    } else {
+      // Buyer states opening offer for the selected bottle
+      setCustomerOffer(customer.openingOffer);
+      const bottle = inventory.find(b => b.id === selectedSellBottle);
+      setPlayerOffer(bottle ? bottle.value : customer.budget);
+      setNegHistory([{ who: "customer", amount: customer.openingOffer, text: `"I'd offer $${customer.openingOffer.toLocaleString()} for that."` }]);
+    }
+  }, [inventory, selectedSellBottle]);
+
+  const submitOffer = useCallback(() => {
+    if (!currentCustomer || !negotiating) return;
+    const c = currentCustomer;
+    const p = c.personality;
+    const round = negRound + 1;
+
+    if (c.type === "seller") {
+      // Player is offering to BUY at playerOffer. Seller wants at least minAccept.
+      if (playerOffer >= c.askingPrice) {
+        // Accepted immediately — overpaid
+        setNegResult("accepted");
+        setNegHistory(prev => [...prev, { who: "player", amount: playerOffer, text: `You offer $${playerOffer.toLocaleString()}` }, { who: "customer", amount: playerOffer, text: `"Deal! Pleasure doing business."` }]);
+      } else if (playerOffer >= c.minAccept) {
+        // In acceptable range — chance of accept scales with how close to asking
+        const ratio = (playerOffer - c.minAccept) / (c.askingPrice - c.minAccept);
+        const acceptChance = 0.2 + ratio * 0.7;
+        if (Math.random() < acceptChance || round >= p.maxRounds) {
+          setNegResult("accepted");
+          setNegHistory(prev => [...prev, { who: "player", amount: playerOffer, text: `You offer $${playerOffer.toLocaleString()}` }, { who: "customer", amount: playerOffer, text: `"...Alright, you've got a deal."` }]);
+        } else {
+          // Counter: move toward player's offer
+          const newCounter = Math.round(customerOffer - (customerOffer - playerOffer) * (0.3 + p.flexibility * 0.3));
+          setCustomerOffer(newCounter);
+          setPlayerOffer(Math.round((playerOffer + newCounter) / 2));
+          setNegResult("countered");
+          setNegHistory(prev => [...prev, { who: "player", amount: playerOffer, text: `You offer $${playerOffer.toLocaleString()}` }, { who: "customer", amount: newCounter, text: `"${p.counterLine} $${newCounter.toLocaleString()}?"` }]);
+        }
+      } else {
+        // Below minimum
+        if (round >= p.maxRounds) {
+          setNegResult("walked");
+          setNegHistory(prev => [...prev, { who: "player", amount: playerOffer, text: `You offer $${playerOffer.toLocaleString()}` }, { who: "customer", amount: null, text: `"${p.walkLine}"` }]);
+        } else {
+          // Counter more firmly
+          const newCounter = Math.round(customerOffer - (customerOffer - c.minAccept) * 0.2);
+          setCustomerOffer(newCounter);
+          setPlayerOffer(Math.round((playerOffer + newCounter) / 2));
+          setNegResult("countered");
+          setNegHistory(prev => [...prev, { who: "player", amount: playerOffer, text: `You offer $${playerOffer.toLocaleString()}` }, { who: "customer", amount: newCounter, text: `"${p.counterLine} $${newCounter.toLocaleString()}?"` }]);
+        }
+      }
+    } else {
+      // Player is SELLING at playerOffer. Buyer will pay up to maxPay.
+      if (playerOffer <= c.openingOffer) {
+        // Accepted immediately — undersold
+        setNegResult("accepted");
+        setNegHistory(prev => [...prev, { who: "player", amount: playerOffer, text: `You ask $${playerOffer.toLocaleString()}` }, { who: "customer", amount: playerOffer, text: `"Sold! That's a great price."` }]);
+      } else if (playerOffer <= c.maxPay) {
+        const ratio = (c.maxPay - playerOffer) / (c.maxPay - c.openingOffer);
+        const acceptChance = 0.15 + ratio * 0.7;
+        if (Math.random() < acceptChance || round >= p.maxRounds) {
+          setNegResult("accepted");
+          setNegHistory(prev => [...prev, { who: "player", amount: playerOffer, text: `You ask $${playerOffer.toLocaleString()}` }, { who: "customer", amount: playerOffer, text: `"...Fine, I'll take it."` }]);
+        } else {
+          const newCounter = Math.round(customerOffer + (playerOffer - customerOffer) * (0.3 + p.flexibility * 0.3));
+          setCustomerOffer(newCounter);
+          setPlayerOffer(Math.round((playerOffer + newCounter) / 2));
+          setNegResult("countered");
+          setNegHistory(prev => [...prev, { who: "player", amount: playerOffer, text: `You ask $${playerOffer.toLocaleString()}` }, { who: "customer", amount: newCounter, text: `"${p.counterLine} $${newCounter.toLocaleString()}?"` }]);
+        }
+      } else {
+        if (round >= p.maxRounds) {
+          setNegResult("walked");
+          setNegHistory(prev => [...prev, { who: "player", amount: playerOffer, text: `You ask $${playerOffer.toLocaleString()}` }, { who: "customer", amount: null, text: `"${p.walkLine}"` }]);
+        } else {
+          const newCounter = Math.round(customerOffer + (c.maxPay - customerOffer) * 0.25);
+          setCustomerOffer(newCounter);
+          setPlayerOffer(Math.round((playerOffer + newCounter) / 2));
+          setNegResult("countered");
+          setNegHistory(prev => [...prev, { who: "player", amount: playerOffer, text: `You ask $${playerOffer.toLocaleString()}` }, { who: "customer", amount: newCounter, text: `"${p.counterLine} $${newCounter.toLocaleString()}?"` }]);
+        }
+      }
+    }
+    setNegRound(round);
+  }, [currentCustomer, negotiating, negRound, playerOffer, customerOffer, inventory, selectedSellBottle]);
+
+  const acceptCounter = useCallback(() => {
+    if (!currentCustomer) return;
+    setPlayerOffer(customerOffer);
+    setNegResult("accepted");
+    setNegHistory(prev => [...prev, { who: "player", amount: customerOffer, text: `You accept $${customerOffer.toLocaleString()}` }, { who: "customer", amount: customerOffer, text: `"Deal!"` }]);
+  }, [currentCustomer, customerOffer]);
+
+  const advanceToNextCustomer = useCallback(() => {
+    const nextIdx = customerIndex + 1;
+    setNegotiating(false); setNegResult(null); setSelectedSellBottle(null);
+    if (nextIdx < customerQueue.length) {
+      setCustomerIndex(nextIdx);
+      setCurrentCustomer(customerQueue[nextIdx]);
+      audio.playSfx("customerEnter");
+    } else {
+      setCurrentCustomer(null);
+    }
+  }, [customerIndex, customerQueue, audio]);
+
+  const finalizeDeal = useCallback(() => {
+    if (!currentCustomer || negResult !== "accepted") return;
+    const finalPrice = negHistory[negHistory.length - 1]?.amount || playerOffer;
+    if (currentCustomer.type === "seller") {
+      if (!canAfford(finalPrice) || shelfFull) return;
+      setCash(prev => prev - finalPrice);
+      setDailyLog(prev => [...prev, { type: "buy", desc: currentCustomer.bottle.displayName, amount: -finalPrice }]);
+      setInventory(p => [currentCustomer.bottle, ...p]);
+      setReputation(prev => prev + (finalPrice < currentCustomer.bottle.value * 0.7 ? REP_PER_GREAT_DEAL : REP_PER_GOOD_DEAL));
+      audio.playSfx("buySuccess");
+    } else {
+      const bottle = inventory.find(b => b.id === selectedSellBottle);
+      if (!bottle) return;
+      setCash(prev => prev + finalPrice);
+      setDailyLog(prev => [...prev, { type: "sell", desc: bottle.displayName, amount: finalPrice }]);
+      setInventory(p => p.filter(b => b.id !== selectedSellBottle));
+      setReputation(prev => prev + (finalPrice > bottle.value * 1.1 ? REP_PER_GREAT_DEAL : REP_PER_GOOD_DEAL));
+      audio.playSfx("sellSuccess");
+    }
+    setNegotiating(false);
+    setNegResult(null);
+    setSelectedSellBottle(null);
+    advanceToNextCustomer();
+  }, [currentCustomer, negResult, negHistory, playerOffer, shelfFull, inventory, selectedSellBottle, audio, advanceToNextCustomer]);
+
+  const walkAway = useCallback(() => {
+    setNegotiating(false);
+    setNegResult(null);
+    audio.playSfx("pass");
+    advanceToNextCustomer();
+  }, [audio, advanceToNextCustomer]);
+
+  const handleStartDay = useCallback(() => {
+    const queue = generateDayQueue();
+    setCustomerQueue(queue);
+    setCustomerIndex(0);
+    setCurrentCustomer(queue.length > 0 ? queue[0] : null);
+    setDayStarted(true);
+    setSelectedSellBottle(null);
+    setNegotiating(false);
+    setNegResult(null);
+    audio.playSfx("buttonClick");
+  }, [generateDayQueue, audio]);
+
+  const handlePass = useCallback(() => {
+    audio.playSfx("pass");
+    setNegotiating(false); setNegResult(null);
+    advanceToNextCustomer();
+  }, [audio, advanceToNextCustomer]);
+
+  // Upgrade store
+  const handleUpgrade = useCallback(() => {
+    if (storeTier >= 6) return;
+    const nextTier = ECONOMY_TIERS[storeTier];
+    if (cash < nextTier.upgradeCost || reputation < nextTier.repRequired) return;
+    setCash(prev => prev - nextTier.upgradeCost);
+    setStoreTier(prev => prev + 1);
+    setDailyLog(prev => [...prev, { type: "upgrade", desc: `Upgraded to ${STORE_TIERS[storeTier].name}`, amount: -nextTier.upgradeCost }]);
+    audio.playSfx("storeUpgrade");
+  }, [storeTier, cash, reputation, audio]);
+
+  // End of day / Rent system
+  const handleEndDay = useCallback(() => {
+    const revenue = dailyLog.filter(l => l.amount > 0).reduce((s, l) => s + l.amount, 0);
+    const expenses = dailyLog.filter(l => l.amount < 0).reduce((s, l) => s + Math.abs(l.amount), 0);
+    const deals = dailyLog.filter(l => l.type === "buy" || l.type === "sell").length;
+    const summary = { revenue, expenses, profit: revenue - expenses, deals, dayNum: day,
+      customersSeen: customerIndex + (currentCustomer ? 1 : 0), customersTotal: customerQueue.length };
+
+    const isRentDay = day > 0 && day % 7 === 0;
+    if (isRentDay) {
+      const rent = tierData.weeklyRent;
+      if (cash >= rent) {
+        setCash(prev => prev - rent);
+        summary.rentPaid = rent;
+        summary.profit -= rent;
+      } else {
+        const newMissed = missedRent + 1;
+        setMissedRent(newMissed);
+        summary.rentMissed = true;
+        summary.missedCount = newMissed;
+        if (newMissed >= MAX_MISSED_RENT) { summary.gameOver = true; setGameOver(true); }
+      }
+    }
+
+    setShowDaySummary(summary);
+    setDay(prev => prev + 1);
+    setDailyLog([]);
+    setDayStarted(false);
+    setCurrentCustomer(null);
+    setCustomerQueue([]);
+    setCustomerIndex(0);
+    setSelectedSellBottle(null);
+    setNegotiating(false);
+    setNegResult(null);
+  }, [day, dailyLog, cash, tierData, missedRent, customerIndex, currentCustomer, customerQueue]);
+
+  const closeDaySummary = useCallback(() => { setShowDaySummary(null); }, []);
+
+  const filteredInventory = inventory.filter(b => filterType === "All" || b.typeName === filterType).sort((a, b) => {
+    if (sortBy === "value") return b.value - a.value; if (sortBy === "age") return b.age - a.age;
+    if (sortBy === "proof") return b.proof - a.proof;
+    if (sortBy === "rarity") { const o = RARITIES.map(r => r.name); return o.indexOf(b.rarity) - o.indexOf(a.rarity); } return 0;
+  });
+  const totalValue = inventory.reduce((s, b) => s + b.value, 0);
+
+  return (
+    <div style={{ minHeight: "100vh", background: "linear-gradient(170deg, #0d0a07 0%, #1a1410 40%, #0d0a07 100%)", color: "#C4A882", fontFamily: "'Libre Baskerville', 'Times New Roman', serif", padding: 0 }}>
+
+      {showOptions && <OptionsMenu audio={audio} onClose={() => { setShowOptions(false); audio.playSfx("buttonClick"); }}
+        onSfxChange={v => { audio.setSfxVolume(v); audio.playSfx("buttonClick"); }} onMusicChange={v => audio.setMusicVolume(v)} />}
+
+      {/* Day Summary Modal */}
+      {showDaySummary && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
+          <div style={{ background: "linear-gradient(145deg, #261f18, #1c1714)", borderRadius: "16px", padding: "32px", border: "2px solid #3a3028", width: "420px", maxWidth: "90vw", textAlign: "center" }}>
+            <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "#D4AF37", margin: "0 0 4px 0", fontSize: "24px" }}>
+              End of Day {showDaySummary.dayNum}
+            </h2>
+            <div style={{ fontSize: "11px", color: "#8B7355", fontFamily: "monospace", marginBottom: "20px" }}>{STORE_TIERS[storeTier - 1].name}</div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
+              <div style={{ background: "#1a1510", borderRadius: "8px", padding: "12px" }}>
+                <div style={{ fontSize: "10px", color: "#8B7355", fontFamily: "monospace", marginBottom: "4px" }}>REVENUE</div>
+                <div style={{ fontSize: "18px", color: "#22C55E", fontFamily: "monospace" }}>+${showDaySummary.revenue.toLocaleString()}</div>
+              </div>
+              <div style={{ background: "#1a1510", borderRadius: "8px", padding: "12px" }}>
+                <div style={{ fontSize: "10px", color: "#8B7355", fontFamily: "monospace", marginBottom: "4px" }}>EXPENSES</div>
+                <div style={{ fontSize: "18px", color: "#C0392B", fontFamily: "monospace" }}>-${showDaySummary.expenses.toLocaleString()}</div>
+              </div>
+            </div>
+
+            <div style={{ background: "#1a1510", borderRadius: "8px", padding: "12px", marginBottom: "16px" }}>
+              <div style={{ fontSize: "10px", color: "#8B7355", fontFamily: "monospace", marginBottom: "4px" }}>NET PROFIT</div>
+              <div style={{ fontSize: "22px", color: showDaySummary.profit >= 0 ? "#22C55E" : "#C0392B", fontFamily: "'Playfair Display', Georgia, serif", fontWeight: "bold" }}>
+                {showDaySummary.profit >= 0 ? "+" : ""}${showDaySummary.profit.toLocaleString()}
+              </div>
+              <div style={{ fontSize: "11px", color: "#8B7355", fontFamily: "monospace", marginTop: "4px" }}>
+                {showDaySummary.deals} deal{showDaySummary.deals !== 1 ? "s" : ""} made · {showDaySummary.customersTotal || 0} customer{(showDaySummary.customersTotal || 0) !== 1 ? "s" : ""} visited
+              </div>
+            </div>
+
+            {showDaySummary.rentPaid && (
+              <div style={{ background: "#22C55E15", border: "1px solid #22C55E30", borderRadius: "8px", padding: "10px", marginBottom: "12px", fontSize: "12px", fontFamily: "monospace", color: "#22C55E" }}>
+                Weekly rent paid: ${showDaySummary.rentPaid.toLocaleString()}
+              </div>
+            )}
+
+            {showDaySummary.rentMissed && !showDaySummary.gameOver && (
+              <div style={{ background: "#C0392B15", border: "1px solid #C0392B30", borderRadius: "8px", padding: "10px", marginBottom: "12px", fontSize: "12px", fontFamily: "monospace", color: "#C0392B" }}>
+                RENT MISSED! You couldn't cover ${tierData.weeklyRent.toLocaleString()} this week.
+                ({showDaySummary.missedCount}/{MAX_MISSED_RENT} missed — {MAX_MISSED_RENT - showDaySummary.missedCount} left before eviction)
+              </div>
+            )}
+
+            {showDaySummary.gameOver && (
+              <div style={{ background: "#C0392B20", border: "2px solid #C0392B", borderRadius: "8px", padding: "14px", marginBottom: "12px", fontSize: "14px", fontFamily: "'Playfair Display', Georgia, serif", color: "#C0392B" }}>
+                EVICTION NOTICE — You've missed rent {MAX_MISSED_RENT} times. Your store is closed.
+              </div>
+            )}
+
+            <button onClick={closeDaySummary} style={menuBtnStyle}>
+              {showDaySummary.gameOver ? "ACCEPT FATE" : `BEGIN DAY ${showDaySummary.dayNum + 1}`}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* TITLE */}
+      {screen === "title" && (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: "20px", textAlign: "center" }}>
+          <div style={{ width: "100%", maxWidth: "540px", marginBottom: "24px", opacity: 0.85 }}><TitleShelfDisplay /></div>
+          <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "clamp(32px, 6vw, 52px)", color: "#D4AF37", margin: "0 0 4px 0", letterSpacing: "4px", textShadow: "0 0 30px rgba(212,175,55,0.3), 0 2px 4px rgba(0,0,0,0.5)", animation: "titlePulse 3s ease-in-out infinite" }}>RARE SPIRITS</h1>
+          <div style={{ fontFamily: "monospace", fontSize: "clamp(10px, 2vw, 14px)", color: "#8B7355", letterSpacing: "6px", marginBottom: "40px" }}>WHISKEY TRADING CO.</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px", width: "260px" }}>
+            <button onClick={() => { setScreen("saves"); audio.playSfx("buttonClick"); }} style={menuBtnStyle}
+              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(212,175,55,0.5)"; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(212,175,55,0.3)"; }}>START GAME</button>
+            <button onClick={() => { setShowOptions(true); audio.playSfx("buttonClick"); }}
+              style={{ ...menuBtnStyle, background: "linear-gradient(145deg, #3a3028, #2a2218)", color: "#D4AF37", boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}>OPTIONS</button>
+            <button onClick={() => { if (window.close) window.close(); }}
+              style={{ ...menuBtnStyle, background: "transparent", color: "#8B7355", border: "2px solid #3a302860", boxShadow: "none" }}>QUIT</button>
+          </div>
+        </div>
+      )}
+
+      {/* SAVE SLOTS */}
+      {screen === "saves" && (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
+          <SaveSlotScreen saves={saves} onSelectSlot={handleSelectSlot} onDeleteSlot={handleDeleteSlot} onBack={() => { setScreen("title"); audio.playSfx("buttonClick"); }} />
+        </div>
+      )}
+
+      {/* NAME STORE */}
+      {screen === "nameStore" && <StoreNameScreen onSubmit={handleNameSubmit} />}
+
+      {/* GAME */}
+      {screen === "game" && engine && (
+        <>
+          <div style={{ borderBottom: "2px solid #3a302830", padding: "16px 24px", background: "linear-gradient(180deg, #1a1510 0%, transparent 100%)" }}>
+            <div style={{ maxWidth: "1200px", margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+              <div>
+                <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "22px", color: "#D4AF37", margin: 0, letterSpacing: "2px" }}>{storeName}</h1>
+                <div style={{ fontSize: "10px", color: "#8B7355", letterSpacing: "2px", marginTop: "2px", fontFamily: "monospace" }}>
+                  DAY {day} · {STORE_TIERS[storeTier - 1].name.toUpperCase()}
+                  {missedRent > 0 && <span style={{ color: "#C0392B", marginLeft: "8px" }}>· RENT OVERDUE ({missedRent}/{MAX_MISSED_RENT})</span>}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: "12px", alignItems: "center", fontSize: "12px", fontFamily: "monospace", flexWrap: "wrap" }}>
+                <div style={{ background: "#1a1510", padding: "4px 10px", borderRadius: "6px", border: "1px solid #3a3028" }}>
+                  <span style={{ color: "#8B7355" }}>CASH</span> <span style={{ color: cash < tierData.weeklyRent ? "#C0392B" : "#22C55E", fontWeight: "bold" }}>${cash.toLocaleString()}</span>
+                </div>
+                <div style={{ background: "#1a1510", padding: "4px 10px", borderRadius: "6px", border: "1px solid #3a3028" }}>
+                  <span style={{ color: "#8B7355" }}>REP</span> <span style={{ color: "#D4AF37", fontWeight: "bold" }}>{reputation}</span>
+                </div>
+                <div style={{ background: "#1a1510", padding: "4px 10px", borderRadius: "6px", border: "1px solid #3a3028" }}>
+                  <span style={{ color: "#8B7355" }}>SHELF</span> <span style={{ color: inventory.length >= shelfLimit ? "#C0392B" : "#F5E6CA", fontWeight: "bold" }}>{inventory.length}/{shelfLimit}</span>
+                </div>
+                <div style={{ background: "#1a1510", padding: "4px 10px", borderRadius: "6px", border: "1px solid #3a3028" }}>
+                  <span style={{ color: "#8B7355" }}>RENT</span> <span style={{ color: "#F5E6CA" }}>${tierData.weeklyRent}/wk</span>
+                  {day % 7 > 0 && <span style={{ color: "#8B735580", marginLeft: "4px" }}>({7 - (day % 7)}d)</span>}
+                </div>
+                <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer", fontSize: "11px", color: "#8B7355", userSelect: "none" }}>
+                  <input type="checkbox" checked={showRarity} onChange={e => setShowRarity(e.target.checked)} style={{ accentColor: "#D4AF37" }} />RARITY (DEV)
+                </label>
+                <button onClick={() => { setShowOptions(true); audio.playSfx("buttonClick"); }}
+                  style={{ padding: "6px 12px", border: "1px solid #3a3028", borderRadius: "6px", background: "transparent", color: "#8B7355", fontSize: "11px", cursor: "pointer", fontFamily: "monospace" }}>OPTIONS</button>
+                <button onClick={() => { setScreen("title"); setOfferedBottle(null); audio.playSfx("buttonClick"); }}
+                  style={{ padding: "6px 12px", border: "1px solid #3a3028", borderRadius: "6px", background: "transparent", color: "#8B7355", fontSize: "11px", cursor: "pointer", fontFamily: "monospace" }}>MENU</button>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "16px 24px 0" }}>
+            <div style={{ display: "flex", gap: "4px" }}>
+              {["storefront", "shop", "inventory", "brands"].map(tab => (
+                <button key={tab} onClick={() => { setActiveTab(tab); audio.playSfx("buttonClick"); }}
+                  style={{ padding: "10px 24px", border: "none", borderRadius: "8px 8px 0 0", cursor: "pointer", fontSize: "13px", fontFamily: "monospace", letterSpacing: "1px", textTransform: "uppercase", background: activeTab === tab ? "#261f18" : "transparent", color: activeTab === tab ? "#D4AF37" : "#8B7355", transition: "all 0.2s" }}>{tab}</button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "24px", background: "#261f1820", borderRadius: "0 12px 12px 12px", minHeight: "500px" }}>
+            {activeTab === "storefront" && (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "20px" }}>
+                <StorefrontSVG storeName={storeName} tier={storeTier} />
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "16px", color: "#D4AF37", marginBottom: "4px" }}>
+                    {STORE_TIERS[storeTier - 1].name}
+                  </div>
+                  <p style={{ color: "#8B7355", fontSize: "13px", fontStyle: "italic", maxWidth: "500px", lineHeight: 1.6, margin: "0 auto" }}>
+                    {STORE_TIERS[storeTier - 1].desc}
+                  </p>
+                </div>
+                {/* Economy overview */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px", width: "100%", maxWidth: "500px" }}>
+                  {[
+                    ["Shelf Capacity", `${inventory.length} / ${shelfLimit}`],
+                    ["Weekly Rent", `$${tierData.weeklyRent}`],
+                    ["Reputation", `${reputation}`],
+                  ].map(([label, val]) => (
+                    <div key={label} style={{ background: "#1a1510", borderRadius: "8px", padding: "12px", textAlign: "center", border: "1px solid #2a2218" }}>
+                      <div style={{ fontSize: "10px", color: "#8B7355", fontFamily: "monospace", letterSpacing: "1px", marginBottom: "4px" }}>{label}</div>
+                      <div style={{ fontSize: "16px", color: "#F5E6CA", fontFamily: "'Playfair Display', Georgia, serif" }}>{val}</div>
+                    </div>
+                  ))}
+                </div>
+                {/* Upgrade section */}
+                {storeTier < 6 && (() => {
+                  const next = ECONOMY_TIERS[storeTier];
+                  const canUpgrade = cash >= next.upgradeCost && reputation >= next.repRequired;
+                  return (
+                    <div style={{ background: "linear-gradient(145deg, #1c1714, #261f18)", borderRadius: "12px", padding: "20px", border: canUpgrade ? "2px solid #D4AF37" : "1px solid #3a3028", width: "100%", maxWidth: "500px", textAlign: "center" }}>
+                      <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "16px", color: "#D4AF37", marginBottom: "8px" }}>
+                        Upgrade to {STORE_TIERS[storeTier].name}
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "center", gap: "20px", marginBottom: "12px", fontSize: "12px", fontFamily: "monospace" }}>
+                        <div>
+                          <span style={{ color: "#8B7355" }}>COST </span>
+                          <span style={{ color: cash >= next.upgradeCost ? "#22C55E" : "#C0392B" }}>${next.upgradeCost.toLocaleString()}</span>
+                        </div>
+                        <div>
+                          <span style={{ color: "#8B7355" }}>REP NEEDED </span>
+                          <span style={{ color: reputation >= next.repRequired ? "#22C55E" : "#C0392B" }}>{next.repRequired}</span>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: "11px", color: "#8B7355", fontFamily: "monospace", marginBottom: "12px" }}>
+                        Shelf: {shelfLimit} → {next.shelfLimit} · Rent: ${tierData.weeklyRent} → ${next.weeklyRent} · Customers: {next.customersPerDay[0]}-{next.customersPerDay[1]}/day
+                      </div>
+                      <button onClick={handleUpgrade} disabled={!canUpgrade}
+                        style={{ ...menuBtnStyle, opacity: canUpgrade ? 1 : 0.35, cursor: canUpgrade ? "pointer" : "not-allowed", padding: "10px 28px", fontSize: "13px" }}>
+                        UPGRADE — ${next.upgradeCost.toLocaleString()}
+                      </button>
+                    </div>
+                  );
+                })()}
+                {storeTier >= 6 && (
+                  <div style={{ color: "#D4AF37", fontFamily: "'Playfair Display', Georgia, serif", fontSize: "16px", fontStyle: "italic" }}>
+                    Maximum tier reached. You've built an empire.
+                  </div>
+                )}
+                {/* DEV: Tier selector */}
+                <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "8px" }}>
+                  <span style={{ fontSize: "11px", color: "#8B7355", fontFamily: "monospace" }}>TIER (DEV)</span>
+                  {[1,2,3,4,5,6].map(t => (
+                    <button key={t} onClick={() => setStoreTier(t)}
+                      style={{ width: "32px", height: "32px", border: storeTier === t ? "2px solid #D4AF37" : "1px solid #3a3028",
+                        borderRadius: "6px", background: storeTier === t ? "#D4AF3720" : "#1a1510",
+                        color: storeTier === t ? "#D4AF37" : "#8B7355", fontSize: "13px", cursor: "pointer", fontFamily: "monospace" }}>{t}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {activeTab === "shop" && (
+              <div>
+                {gameOver ? (
+                  <div style={{ textAlign: "center", padding: "60px 20px" }}>
+                    <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "#C0392B", fontSize: "28px", marginBottom: "12px" }}>CLOSED FOR BUSINESS</h2>
+                    <p style={{ color: "#8B7355", fontSize: "14px", maxWidth: "400px", margin: "0 auto 24px", lineHeight: 1.6 }}>
+                      You missed rent {MAX_MISSED_RENT} times. The landlord has changed the locks. Your rare whiskey venture has come to an end.
+                    </p>
+                    <button onClick={() => { setScreen("title"); audio.playSfx("buttonClick"); }} style={menuBtnStyle}>RETURN TO TITLE</button>
+                  </div>
+                ) : !dayStarted ? (
+                  /* --- DAY NOT STARTED --- */
+                  <div style={{ textAlign: "center", padding: "40px 20px" }}>
+                    <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "#D4AF37", fontSize: "24px", marginBottom: "8px" }}>Day {day}</h2>
+                    <p style={{ color: "#8B7355", fontSize: "13px", marginBottom: "8px", fontFamily: "monospace" }}>
+                      Expected customers today: {tierData.customersPerDay[0]}-{tierData.customersPerDay[1]}
+                    </p>
+                    {dailyLog.length > 0 && (
+                      <div style={{ fontSize: "11px", color: "#8B7355", fontFamily: "monospace", marginBottom: "16px" }}>
+                        Today so far: {dailyLog.filter(l => l.type === "buy").length} bought · {dailyLog.filter(l => l.type === "sell").length} sold
+                      </div>
+                    )}
+                    <button onClick={handleStartDay} style={menuBtnStyle}
+                      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(212,175,55,0.5)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(212,175,55,0.3)"; }}>
+                      OPEN FOR BUSINESS
+                    </button>
+                    {day % 7 === 0 && (
+                      <div style={{ marginTop: "16px", padding: "10px 16px", background: cash >= tierData.weeklyRent ? "#D4AF3710" : "#C0392B15", borderRadius: "8px", border: `1px solid ${cash >= tierData.weeklyRent ? "#D4AF3730" : "#C0392B30"}`, fontSize: "12px", fontFamily: "monospace", color: cash >= tierData.weeklyRent ? "#D4AF37" : "#C0392B" }}>
+                        Rent is due today: ${tierData.weeklyRent.toLocaleString()}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* --- DAY IN PROGRESS --- */
+                  <>
+                    {/* Progress bar */}
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
+                      <span style={{ fontSize: "11px", color: "#8B7355", fontFamily: "monospace", whiteSpace: "nowrap" }}>
+                        CUSTOMER {Math.min(customerIndex + 1, customerQueue.length)}/{customerQueue.length}
+                      </span>
+                      <div style={{ flex: 1, height: "6px", background: "#1a1510", borderRadius: "3px", overflow: "hidden" }}>
+                        <div style={{ width: `${((customerIndex + (currentCustomer ? 0 : 1)) / customerQueue.length) * 100}%`, height: "100%", background: "linear-gradient(90deg, #D4AF37, #B8960C)", borderRadius: "3px", transition: "width 0.3s" }} />
+                      </div>
+                      <button onClick={handleEndDay}
+                        style={{ padding: "6px 16px", background: "linear-gradient(145deg, #3a3028, #2a2218)", border: "none", borderRadius: "6px", color: "#D4AF37", fontSize: "11px", cursor: "pointer", fontFamily: "monospace", letterSpacing: "1px" }}>
+                        END DAY
+                      </button>
+                    </div>
+
+                    {/* Daily log ticker */}
+                    {dailyLog.length > 0 && (
+                      <div style={{ fontSize: "11px", color: "#8B7355", fontFamily: "monospace", textAlign: "center", marginBottom: "16px" }}>
+                        Today: {dailyLog.filter(l => l.type === "buy").length} bought · {dailyLog.filter(l => l.type === "sell").length} sold ·
+                        Net: <span style={{ color: dailyLog.reduce((s, l) => s + l.amount, 0) >= 0 ? "#22C55E" : "#C0392B" }}>
+                          ${dailyLog.reduce((s, l) => s + l.amount, 0).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+
+                    {currentCustomer ? (
+                      <div style={{ animation: "fadeIn 0.4s ease-out" }}>
+                        {/* Customer header */}
+                        <div style={{ textAlign: "center", marginBottom: "16px" }}>
+                          <div style={{ fontSize: "16px", color: "#F5E6CA", fontFamily: "'Playfair Display', Georgia, serif", marginBottom: "4px" }}>
+                            {currentCustomer.name}
+                          </div>
+                          <div style={{ display: "inline-block", padding: "4px 12px", borderRadius: "12px", fontSize: "11px", fontFamily: "monospace", letterSpacing: "1px",
+                            background: currentCustomer.type === "seller" ? "#8B451320" : "#3B82F620",
+                            color: currentCustomer.type === "seller" ? "#D4A017" : "#60A5FA",
+                            border: `1px solid ${currentCustomer.type === "seller" ? "#8B451340" : "#3B82F640"}` }}>
+                            {currentCustomer.type === "seller" ? "WANTS TO SELL" : "WANTS TO BUY"}
+                          </div>
+                        </div>
+
+                        {/* --- SELLER INTERACTION --- */}
+                        {currentCustomer.type === "seller" && (
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
+                            <div style={{ fontSize: "14px", color: "#C4A882", fontStyle: "italic", textAlign: "center" }}>
+                              "{currentCustomer.openLine}"
+                            </div>
+                            <BottleCard bottle={currentCustomer.bottle} showRarity={showRarity} />
+                            {shelfFull && <div style={{ color: "#C0392B", fontSize: "13px", fontFamily: "monospace", padding: "8px 16px", background: "#C0392B15", borderRadius: "6px", border: "1px solid #C0392B30" }}>SHELF FULL — No room for more bottles.</div>}
+
+                            {!shelfFull && !negotiating && (
+                              <div style={{ display: "flex", gap: "12px" }}>
+                                <button onClick={() => startNegotiation(currentCustomer)}
+                                  style={{ padding: "12px 32px", background: "linear-gradient(145deg, #22C55E, #16A34A)", border: "none", borderRadius: "8px", color: "#fff", fontSize: "14px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace", letterSpacing: "1px" }}>
+                                  NEGOTIATE
+                                </button>
+                                <button onClick={handlePass} style={{ padding: "12px 32px", background: "transparent", border: "2px solid #8B735566", borderRadius: "8px", color: "#8B7355", fontSize: "14px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace", letterSpacing: "1px" }}>PASS</button>
+                              </div>
+                            )}
+
+                            {/* Negotiation UI */}
+                            {negotiating && (
+                              <div style={{ width: "100%", maxWidth: "460px", background: "#1a1510", borderRadius: "12px", padding: "20px", border: "1px solid #3a3028" }}>
+                                {/* Chat history */}
+                                <div style={{ maxHeight: "140px", overflowY: "auto", marginBottom: "16px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                                  {negHistory.map((h, i) => (
+                                    <div key={i} style={{ display: "flex", justifyContent: h.who === "player" ? "flex-end" : "flex-start" }}>
+                                      <div style={{ padding: "6px 12px", borderRadius: "8px", maxWidth: "80%", fontSize: "12px", fontFamily: "monospace",
+                                        background: h.who === "player" ? "#D4AF3720" : "#3a302840", color: h.who === "player" ? "#D4AF37" : "#C4A882" }}>
+                                        {h.text}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {/* Round indicator */}
+                                <div style={{ fontSize: "10px", color: "#8B7355", fontFamily: "monospace", textAlign: "center", marginBottom: "8px" }}>
+                                  Round {negRound + 1}/{currentCustomer.personality.maxRounds} · {currentCustomer.personality.icon} {currentCustomer.personality.name}
+                                </div>
+
+                                {negResult === "accepted" ? (
+                                  <div style={{ textAlign: "center" }}>
+                                    <div style={{ color: "#22C55E", fontSize: "16px", fontFamily: "'Playfair Display', Georgia, serif", marginBottom: "12px" }}>Deal Agreed!</div>
+                                    {!canAfford(negHistory[negHistory.length-1]?.amount || 0) ? (
+                                      <div style={{ color: "#C0392B", fontSize: "12px", fontFamily: "monospace", marginBottom: "8px" }}>You can't afford this! (${cash.toLocaleString()} available)</div>
+                                    ) : (
+                                      <button onClick={finalizeDeal} style={{ ...menuBtnStyle, padding: "10px 24px", fontSize: "13px", background: "linear-gradient(145deg, #22C55E, #16A34A)" }}>
+                                        CONFIRM — Pay ${(negHistory[negHistory.length-1]?.amount || 0).toLocaleString()}
+                                      </button>
+                                    )}
+                                  </div>
+                                ) : negResult === "walked" ? (
+                                  <div style={{ textAlign: "center" }}>
+                                    <div style={{ color: "#C0392B", fontSize: "14px", fontFamily: "'Playfair Display', Georgia, serif", marginBottom: "12px" }}>Customer walked away.</div>
+                                    <button onClick={walkAway} style={{ ...menuBtnStyle, padding: "10px 24px", fontSize: "13px", background: "linear-gradient(145deg, #3a3028, #2a2218)", color: "#D4AF37" }}>NEXT</button>
+                                  </div>
+                                ) : (
+                                  <>
+                                    {/* Slider */}
+                                    <div style={{ marginBottom: "12px" }}>
+                                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "#8B7355", fontFamily: "monospace", marginBottom: "4px" }}>
+                                        <span>$0</span><span>Your offer: ${playerOffer.toLocaleString()}</span><span>${Math.round(currentCustomer.askingPrice * 1.3).toLocaleString()}</span>
+                                      </div>
+                                      <input type="range" min={0} max={Math.round(currentCustomer.askingPrice * 1.3)} step={5} value={playerOffer}
+                                        onChange={e => setPlayerOffer(Number(e.target.value))}
+                                        style={{ width: "100%", accentColor: "#D4AF37", cursor: "pointer" }} />
+                                    </div>
+                                    <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+                                      <button onClick={submitOffer}
+                                        style={{ padding: "10px 24px", background: "linear-gradient(145deg, #D4AF37, #B8960C)", border: "none", borderRadius: "8px", color: "#1a1a1a", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
+                                        OFFER ${playerOffer.toLocaleString()}
+                                      </button>
+                                      {negResult === "countered" && (
+                                        <button onClick={acceptCounter}
+                                          style={{ padding: "10px 24px", background: "linear-gradient(145deg, #22C55E, #16A34A)", border: "none", borderRadius: "8px", color: "#fff", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
+                                          ACCEPT ${customerOffer.toLocaleString()}
+                                        </button>
+                                      )}
+                                      <button onClick={walkAway}
+                                        style={{ padding: "10px 24px", background: "transparent", border: "2px solid #8B735566", borderRadius: "8px", color: "#8B7355", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
+                                        WALK AWAY
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* --- BUYER INTERACTION --- */}
+                        {currentCustomer.type === "buyer" && (
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
+                            <div style={{ fontSize: "14px", color: "#C4A882", fontStyle: "italic", textAlign: "center" }}>
+                              "{currentCustomer.openLine}"
+                            </div>
+
+                            {!negotiating && (
+                              <>
+                                <div style={{ fontSize: "11px", color: "#8B7355", fontFamily: "monospace" }}>
+                                  Select a bottle to offer this customer:
+                                </div>
+                                {(() => {
+                                  const matching = inventory.filter(currentCustomer.filter);
+                                  const allBottles = matching.length > 0 ? matching : inventory;
+                                  if (allBottles.length === 0) return (
+                                    <div style={{ color: "#5a4a38", fontSize: "13px", padding: "20px" }}>Your shelves are empty. Nothing to sell.</div>
+                                  );
+                                  return (
+                                    <div style={{ width: "100%", maxHeight: "300px", overflowY: "auto", display: "flex", flexWrap: "wrap", gap: "10px", justifyContent: "center", padding: "8px 0" }}>
+                                      {allBottles.map(b => {
+                                        const isSelected = selectedSellBottle === b.id;
+                                        const isMatch = currentCustomer.filter(b);
+                                        return (
+                                          <div key={b.id} onClick={() => setSelectedSellBottle(b.id)}
+                                            style={{
+                                              padding: "10px", borderRadius: "10px", cursor: "pointer", width: "200px",
+                                              background: isSelected ? "#D4AF3715" : "linear-gradient(145deg, #2a2218, #1c1714)",
+                                              border: isSelected ? "2px solid #D4AF37" : isMatch ? "1px solid #3a3028" : "1px dashed #3a302860",
+                                              opacity: isMatch ? 1 : 0.5, transition: "all 0.2s",
+                                            }}>
+                                            <div style={{ fontSize: "12px", color: "#F5E6CA", fontFamily: "'Playfair Display', Georgia, serif", marginBottom: "4px", lineHeight: 1.3 }}>{b.displayName}</div>
+                                            <div style={{ fontSize: "10px", color: "#8B7355", fontFamily: "monospace" }}>{b.typeName} · {b.age}yr · {b.proof}pf</div>
+                                            <div style={{ fontSize: "13px", color: "#D4AF37", fontFamily: "monospace", fontWeight: "bold", marginTop: "4px" }}>${b.value.toLocaleString()}</div>
+                                            {!isMatch && <div style={{ fontSize: "9px", color: "#8B735580", fontFamily: "monospace", marginTop: "2px" }}>Not what they asked for</div>}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  );
+                                })()}
+                                <div style={{ display: "flex", gap: "12px" }}>
+                                  <button onClick={() => { if (selectedSellBottle) startNegotiation(currentCustomer); }} disabled={!selectedSellBottle}
+                                    style={{ padding: "12px 32px", background: selectedSellBottle ? "linear-gradient(145deg, #3B82F6, #2563EB)" : "#3a3028", border: "none", borderRadius: "8px", color: selectedSellBottle ? "#fff" : "#8B7355", fontSize: "14px", fontWeight: "bold", cursor: selectedSellBottle ? "pointer" : "not-allowed", fontFamily: "monospace", letterSpacing: "1px", opacity: selectedSellBottle ? 1 : 0.5 }}>
+                                    {selectedSellBottle ? "NEGOTIATE" : "SELECT A BOTTLE"}
+                                  </button>
+                                  <button onClick={handlePass} style={{ padding: "12px 32px", background: "transparent", border: "2px solid #8B735566", borderRadius: "8px", color: "#8B7355", fontSize: "14px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace", letterSpacing: "1px" }}>PASS</button>
+                                </div>
+                              </>
+                            )}
+
+                            {/* Negotiation UI for selling */}
+                            {negotiating && (() => {
+                              const bottle = inventory.find(b => b.id === selectedSellBottle);
+                              if (!bottle) return null;
+                              const maxSlider = Math.round(bottle.value * 2);
+                              return (
+                                <div style={{ width: "100%", maxWidth: "460px" }}>
+                                  {/* Show the bottle being negotiated */}
+                                  <div style={{ background: "#2a221840", borderRadius: "8px", padding: "10px", marginBottom: "12px", textAlign: "center" }}>
+                                    <div style={{ fontSize: "13px", color: "#F5E6CA", fontFamily: "'Playfair Display', Georgia, serif" }}>{bottle.displayName}</div>
+                                    <div style={{ fontSize: "11px", color: "#8B7355", fontFamily: "monospace" }}>Value: ${bottle.value.toLocaleString()}</div>
+                                  </div>
+
+                                  <div style={{ background: "#1a1510", borderRadius: "12px", padding: "20px", border: "1px solid #3a3028" }}>
+                                    {/* Chat history */}
+                                    <div style={{ maxHeight: "140px", overflowY: "auto", marginBottom: "16px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                                      {negHistory.map((h, i) => (
+                                        <div key={i} style={{ display: "flex", justifyContent: h.who === "player" ? "flex-end" : "flex-start" }}>
+                                          <div style={{ padding: "6px 12px", borderRadius: "8px", maxWidth: "80%", fontSize: "12px", fontFamily: "monospace",
+                                            background: h.who === "player" ? "#3B82F620" : "#3a302840", color: h.who === "player" ? "#60A5FA" : "#C4A882" }}>
+                                            {h.text}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+
+                                    <div style={{ fontSize: "10px", color: "#8B7355", fontFamily: "monospace", textAlign: "center", marginBottom: "8px" }}>
+                                      Round {negRound + 1}/{currentCustomer.personality.maxRounds} · {currentCustomer.personality.icon} {currentCustomer.personality.name}
+                                    </div>
+
+                                    {negResult === "accepted" ? (
+                                      <div style={{ textAlign: "center" }}>
+                                        <div style={{ color: "#22C55E", fontSize: "16px", fontFamily: "'Playfair Display', Georgia, serif", marginBottom: "12px" }}>Deal Agreed!</div>
+                                        <button onClick={finalizeDeal} style={{ ...menuBtnStyle, padding: "10px 24px", fontSize: "13px", background: "linear-gradient(145deg, #3B82F6, #2563EB)" }}>
+                                          CONFIRM SALE — ${(negHistory[negHistory.length-1]?.amount || 0).toLocaleString()}
+                                        </button>
+                                      </div>
+                                    ) : negResult === "walked" ? (
+                                      <div style={{ textAlign: "center" }}>
+                                        <div style={{ color: "#C0392B", fontSize: "14px", fontFamily: "'Playfair Display', Georgia, serif", marginBottom: "12px" }}>Customer walked away.</div>
+                                        <button onClick={walkAway} style={{ ...menuBtnStyle, padding: "10px 24px", fontSize: "13px", background: "linear-gradient(145deg, #3a3028, #2a2218)", color: "#D4AF37" }}>NEXT</button>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <div style={{ marginBottom: "12px" }}>
+                                          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "10px", color: "#8B7355", fontFamily: "monospace", marginBottom: "4px" }}>
+                                            <span>$0</span><span>Your asking price: ${playerOffer.toLocaleString()}</span><span>${maxSlider.toLocaleString()}</span>
+                                          </div>
+                                          <input type="range" min={0} max={maxSlider} step={5} value={playerOffer}
+                                            onChange={e => setPlayerOffer(Number(e.target.value))}
+                                            style={{ width: "100%", accentColor: "#3B82F6", cursor: "pointer" }} />
+                                        </div>
+                                        <div style={{ display: "flex", gap: "8px", justifyContent: "center", flexWrap: "wrap" }}>
+                                          <button onClick={submitOffer}
+                                            style={{ padding: "10px 24px", background: "linear-gradient(145deg, #3B82F6, #2563EB)", border: "none", borderRadius: "8px", color: "#fff", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
+                                            ASK ${playerOffer.toLocaleString()}
+                                          </button>
+                                          {negResult === "countered" && (
+                                            <button onClick={acceptCounter}
+                                              style={{ padding: "10px 24px", background: "linear-gradient(145deg, #22C55E, #16A34A)", border: "none", borderRadius: "8px", color: "#fff", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
+                                              ACCEPT ${customerOffer.toLocaleString()}
+                                            </button>
+                                          )}
+                                          <button onClick={walkAway}
+                                            style={{ padding: "10px 24px", background: "transparent", border: "2px solid #8B735566", borderRadius: "8px", color: "#8B7355", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
+                                            WALK AWAY
+                                          </button>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* All customers served */
+                      <div style={{ textAlign: "center", padding: "40px 20px" }}>
+                        <div style={{ fontSize: "16px", color: "#D4AF37", fontFamily: "'Playfair Display', Georgia, serif", marginBottom: "8px" }}>
+                          All customers served for today.
+                        </div>
+                        <p style={{ color: "#8B7355", fontSize: "13px", marginBottom: "20px" }}>
+                          {customerQueue.length} customer{customerQueue.length !== 1 ? "s" : ""} visited today.
+                        </p>
+                        <button onClick={handleEndDay} style={menuBtnStyle}
+                          onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(212,175,55,0.5)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 12px rgba(212,175,55,0.3)"; }}>
+                          END DAY {day}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+            {activeTab === "inventory" && (
+              <div>
+                <div style={{ display: "flex", gap: "12px", marginBottom: "20px", flexWrap: "wrap", alignItems: "center" }}>
+                  <span style={{ fontSize: "11px", color: "#8B7355", fontFamily: "monospace" }}>FILTER</span>
+                  {["All", ...Object.keys(WHISKEY_TYPES)].map(t => (
+                    <button key={t} onClick={() => setFilterType(t)} style={{ padding: "6px 14px", border: filterType === t ? "1px solid #D4AF37" : "1px solid #3a3028", borderRadius: "6px", background: filterType === t ? "#D4AF3720" : "transparent", color: filterType === t ? "#D4AF37" : "#8B7355", fontSize: "12px", cursor: "pointer", fontFamily: "monospace" }}>{t}</button>
+                  ))}
+                  <span style={{ marginLeft: "auto", fontSize: "11px", color: "#8B7355", fontFamily: "monospace" }}>SORT</span>
+                  {[["newest","Newest"],["value","Value"],["age","Age"],["proof","Proof"],["rarity","Rarity"]].map(([k, l]) => (
+                    <button key={k} onClick={() => setSortBy(k)} style={{ padding: "6px 14px", border: sortBy === k ? "1px solid #D4AF37" : "1px solid #3a3028", borderRadius: "6px", background: sortBy === k ? "#D4AF3720" : "transparent", color: sortBy === k ? "#D4AF37" : "#8B7355", fontSize: "12px", cursor: "pointer", fontFamily: "monospace" }}>{l}</button>
+                  ))}
+                </div>
+                {filteredInventory.length === 0
+                  ? <div style={{ textAlign: "center", padding: "60px 20px", color: "#5a4a38", fontSize: "14px" }}>{inventory.length === 0 ? "Your shelves are empty. Head to the shop to buy some bottles." : "No bottles match this filter."}</div>
+                  : <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", justifyContent: "center" }}>{filteredInventory.map(b => <BottleCard key={b.id} bottle={b} showRarity={showRarity} />)}</div>
+                }
+              </div>
+            )}
+            {activeTab === "brands" && <BrandPanel engine={engine} />}
+          </div>
+        </>
+      )}
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;700&display=swap');
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes titlePulse { 0%, 100% { text-shadow: 0 0 30px rgba(212,175,55,0.3), 0 2px 4px rgba(0,0,0,0.5); } 50% { text-shadow: 0 0 50px rgba(212,175,55,0.5), 0 2px 4px rgba(0,0,0,0.5); } }
+        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: #1a1510; } ::-webkit-scrollbar-thumb { background: #3a3028; border-radius: 3px; }
+        * { box-sizing: border-box; } input::placeholder { color: #5a4a38; }
+      `}</style>
+    </div>
+  );
+}
+// Mount the app
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(WhiskeyGame));
+  </script>
+</body>
+</html>
