@@ -440,7 +440,7 @@ function tagStyle(bg) {
   return { display: "inline-block", padding: "2px 8px", borderRadius: "4px", fontSize: "10px", fontFamily: "monospace", letterSpacing: "0.5px", background: bg + "33", color: "#C4A882", border: `1px solid ${bg}66` };
 }
 
-function BottleCard({ bottle, showRarity = false, onClick, yearEstimate = null }) {
+function BottleCard({ bottle, showRarity = false, onClick, yearEstimate = null, hideValue = false, purchasePrice = null }) {
   const rarityDef = RARITIES.find(r => r.name === bottle.rarity);
   const borderStyle = showRarity
     ? rarityDef?.gradient ? { borderImage: `${rarityDef.gradient} 1`, borderWidth: "3px", borderStyle: "solid" } : { border: `3px solid ${rarityDef?.color || "#6B7280"}` }
@@ -484,7 +484,11 @@ function BottleCard({ bottle, showRarity = false, onClick, yearEstimate = null }
           })}
         </div>
       </div>
-      <div style={{ marginTop: "12px", textAlign: "center", fontSize: "18px", fontFamily: "'Playfair Display', Georgia, serif", color: "#D4AF37", fontWeight: "bold" }}>${bottle.value.toLocaleString()}</div>
+      {!hideValue && (
+        <div style={{ marginTop: "12px", textAlign: "center", fontSize: "18px", fontFamily: "'Playfair Display', Georgia, serif", fontWeight: "bold", color: purchasePrice != null ? "#C4A882" : "#D4AF37" }}>
+          {purchasePrice != null ? `Paid: $${purchasePrice.toLocaleString()}` : `$${bottle.value.toLocaleString()}`}
+        </div>
+      )}
     </div>
   );
 }
@@ -1058,10 +1062,13 @@ function WhiskeyGame() {
   const [dailyLog, setDailyLog] = useState([]); // [{type, desc, amount}] for current day
   const [offeredBottle, setOfferedBottle] = useState(null);
   const [showRarity, setShowRarity] = useState(false);
-  const [activeTab, setActiveTab] = useState("storefront");
+  const [activeTab, setActiveTab] = useState("shop");
   const [filterType, setFilterType] = useState("All");
   const [sortBy, setSortBy] = useState("newest");
-  const [playerSkills, setPlayerSkills] = useState({ yearEstimation: 0 });
+  const [playerSkills, setPlayerSkills] = useState({ yearEstimation: 0, industryKnowledge: 0 });
+  const [codex, setCodex] = useState({}); // { brandName: { typeName+mods: { bottles: [{year,proof,age,mashbill}], minYear, maxYear, ... } } }
+  const [codexExpandedBrand, setCodexExpandedBrand] = useState(null);
+  const [codexExpandedVariant, setCodexExpandedVariant] = useState(null);
 
   const engineRef = useRef(null);
   const audioRef = useRef(null);
@@ -1075,27 +1082,28 @@ function WhiskeyGame() {
     if (save) {
       setActiveSlot(i); setStoreName(save.storeName); setStoreTier(save.storeTier || 1); setInventory(save.inventory);
       setCash(save.cash ?? STARTING_CASH); setReputation(save.reputation ?? 0); setDay(save.day ?? 1); setMissedRent(save.missedRent ?? 0);
-      setPlayerSkills(save.playerSkills ?? { yearEstimation: 0 });
+      setPlayerSkills(save.playerSkills ?? { yearEstimation: 0, industryKnowledge: 0 });
+      setCodex(save.codex ?? {});
       setGameOver(false); setDailyLog([]); setShowDaySummary(null); setShowRentDue(null);
       initEngine(save.gameSeed);
       if (save.engineBrands) engineRef.current.brands = save.engineBrands;
       if (save.engineBrandNames) engineRef.current.brandNames = save.engineBrandNames;
       if (save.engineBottleCache) engineRef.current.bottleCache = save.engineBottleCache;
-      setActiveTab("storefront"); setScreen("game");
+      setActiveTab("shop"); setScreen("game");
     } else {
-      setActiveSlot(i); initEngine(); setInventory([]); setCash(STARTING_CASH); setReputation(0); setDay(1); setMissedRent(0); setGameOver(false); setDailyLog([]); setStoreTier(1); setPlayerSkills({ yearEstimation: 0 }); setScreen("nameStore");
+      setActiveSlot(i); initEngine(); setInventory([]); setCash(STARTING_CASH); setReputation(0); setDay(1); setMissedRent(0); setGameOver(false); setDailyLog([]); setStoreTier(1); setPlayerSkills({ yearEstimation: 0, industryKnowledge: 0 }); setCodex({}); setScreen("nameStore");
     }
     audio.playSfx("buttonClick");
   }, [saves, initEngine, audio]);
 
   const handleDeleteSlot = useCallback((i) => { setSaves(p => { const n = [...p]; n[i] = null; return n; }); audio.playSfx("buttonClick"); }, [audio]);
-  const handleNameSubmit = useCallback((name) => { setStoreName(name); setActiveTab("storefront"); setScreen("game"); audio.playSfx("buttonClick"); }, [audio]);
+  const handleNameSubmit = useCallback((name) => { setStoreName(name); setActiveTab("shop"); setScreen("game"); audio.playSfx("buttonClick"); }, [audio]);
 
   useEffect(() => {
     if (screen === "game" && activeSlot !== null && engineRef.current) {
-      setSaves(p => { const n = [...p]; n[activeSlot] = { storeName, storeTier, inventory, cash, reputation, day, missedRent, playerSkills, gameSeed: engineRef.current.gameSeed, engineBrands: engineRef.current.brands, engineBrandNames: engineRef.current.brandNames, engineBottleCache: engineRef.current.bottleCache }; return n; });
+      setSaves(p => { const n = [...p]; n[activeSlot] = { storeName, storeTier, inventory, cash, reputation, day, missedRent, playerSkills, codex, gameSeed: engineRef.current.gameSeed, engineBrands: engineRef.current.brands, engineBrandNames: engineRef.current.brandNames, engineBottleCache: engineRef.current.bottleCache }; return n; });
     }
-  }, [screen, activeSlot, storeName, storeTier, inventory, cash, reputation, day, missedRent, playerSkills]);
+  }, [screen, activeSlot, storeName, storeTier, inventory, cash, reputation, day, missedRent, playerSkills, codex]);
 
   const engine = engineRef.current;
   const tierData = ECONOMY_TIERS[storeTier - 1];
@@ -1255,10 +1263,86 @@ function WhiskeyGame() {
       // Buyer states opening offer for the selected bottle
       setCustomerOffer(customer.openingOffer);
       const bottle = inventory.find(b => b.id === selectedSellBottle);
-      setPlayerOffer(bottle ? bottle.value : customer.budget);
+      setPlayerOffer(bottle ? Math.round((bottle.purchasePrice || bottle.value) * 1.3) : customer.budget);
       setNegHistory([{ who: "customer", amount: customer.openingOffer, text: `"I'd offer $${customer.openingOffer.toLocaleString()} for that."` }]);
     }
   }, [inventory, selectedSellBottle]);
+
+  // ---- CODEX TRACKING ----
+  const trackBottleInCodex = useCallback((bottle) => {
+    if (!bottle) return;
+    const brand = bottle.brandName;
+    // Build a key from type + modifiers to distinguish variants
+    const modKey = bottle.modifiers.length > 0 ? bottle.modifiers.sort().join(" ") + " " : "";
+    const variantKey = `${modKey}${bottle.typeName}`;
+
+    setCodex(prev => {
+      const next = { ...prev };
+      if (!next[brand]) next[brand] = {};
+      const existing = next[brand][variantKey];
+      if (existing) {
+        // Update year range if year is known
+        if (bottle.yearKnown) {
+          existing.minYear = Math.min(existing.minYear ?? bottle.year, bottle.year);
+          existing.maxYear = Math.max(existing.maxYear ?? bottle.year, bottle.year);
+        }
+        // Track encounters
+        existing.encounters = (existing.encounters || 1) + 1;
+        // Keep latest stats (proof/age/mashbill from most recent encounter)
+        existing.lastProof = bottle.proof;
+        existing.lastAge = bottle.age;
+        existing.lastMashbill = bottle.mashbill;
+      } else {
+        next[brand][variantKey] = {
+          brandName: brand,
+          typeName: bottle.typeName,
+          modifiers: [...bottle.modifiers],
+          variantKey,
+          displayName: `${brand} ${variantKey}`,
+          minYear: bottle.yearKnown ? bottle.year : null,
+          maxYear: bottle.yearKnown ? bottle.year : null,
+          lastProof: bottle.proof,
+          lastAge: bottle.age,
+          lastMashbill: bottle.mashbill,
+          region: bottle.region,
+          encounters: 1,
+          // Visual identity
+          bottleShapeIdx: bottle.bottleShapeIdx,
+          bottleColor: bottle.bottleColor,
+          capColor: bottle.capColor,
+          labelColor: bottle.labelColor,
+          labelAccent: bottle.labelAccent,
+        };
+      }
+      return next;
+    });
+  }, []);
+
+  const trackPriceInCodex = useCallback((bottle, dealType, price) => {
+    if (!bottle) return;
+    const brand = bottle.brandName;
+    const modKey = bottle.modifiers.length > 0 ? bottle.modifiers.sort().join(" ") + " " : "";
+    const variantKey = `${modKey}${bottle.typeName}`;
+    const yearKey = bottle.yearKnown ? String(bottle.year) : "unknown";
+
+    setCodex(prev => {
+      const next = { ...prev };
+      if (!next[brand] || !next[brand][variantKey]) return next; // must already be tracked
+      const entry = next[brand][variantKey];
+      if (!entry.priceHistory) entry.priceHistory = {};
+      if (!entry.priceHistory[yearKey]) entry.priceHistory[yearKey] = {};
+      const yh = entry.priceHistory[yearKey];
+
+      if (dealType === "buy") {
+        yh.minBuy = yh.minBuy != null ? Math.min(yh.minBuy, price) : price;
+        yh.maxBuy = yh.maxBuy != null ? Math.max(yh.maxBuy, price) : price;
+      } else {
+        yh.minSell = yh.minSell != null ? Math.min(yh.minSell, price) : price;
+        yh.maxSell = yh.maxSell != null ? Math.max(yh.maxSell, price) : price;
+      }
+      return next;
+    });
+  }, []);
 
   const submitOffer = useCallback(() => {
     if (!currentCustomer || !negotiating) return;
@@ -1347,23 +1431,29 @@ function WhiskeyGame() {
     const nextIdx = customerIndex + 1;
     setNegotiating(false); setNegResult(null); setSelectedSellBottle(null);
     if (nextIdx < customerQueue.length) {
+      const nextCustomer = customerQueue[nextIdx];
       setCustomerIndex(nextIdx);
-      setCurrentCustomer(customerQueue[nextIdx]);
+      setCurrentCustomer(nextCustomer);
+      // Track seller bottles in codex when encountered
+      if (nextCustomer.type === "seller" && nextCustomer.bottle) trackBottleInCodex(nextCustomer.bottle);
       audio.playSfx("customerEnter");
     } else {
       setCurrentCustomer(null);
     }
-  }, [customerIndex, customerQueue, audio]);
+  }, [customerIndex, customerQueue, audio, trackBottleInCodex]);
 
   const finalizeDeal = useCallback(() => {
     if (!currentCustomer || negResult !== "accepted") return;
     const finalPrice = negHistory[negHistory.length - 1]?.amount || playerOffer;
     if (currentCustomer.type === "seller") {
       if (!canAfford(finalPrice) || shelfFull) return;
+      const boughtBottle = { ...currentCustomer.bottle, purchasePrice: finalPrice };
       setCash(prev => prev - finalPrice);
-      setDailyLog(prev => [...prev, { type: "buy", desc: currentCustomer.bottle.displayName, amount: -finalPrice }]);
-      setInventory(p => [currentCustomer.bottle, ...p]);
-      setReputation(prev => prev + (finalPrice < currentCustomer.bottle.value * 0.7 ? REP_PER_GREAT_DEAL : REP_PER_GOOD_DEAL));
+      setDailyLog(prev => [...prev, { type: "buy", desc: boughtBottle.displayName, amount: -finalPrice }]);
+      setInventory(p => [boughtBottle, ...p]);
+      setReputation(prev => prev + (finalPrice < currentCustomer.bottle.trueValue * 0.7 ? REP_PER_GREAT_DEAL : REP_PER_GOOD_DEAL));
+      // Track buy price in codex
+      trackPriceInCodex(boughtBottle, "buy", finalPrice);
       audio.playSfx("buySuccess");
     } else {
       const bottle = inventory.find(b => b.id === selectedSellBottle);
@@ -1371,14 +1461,18 @@ function WhiskeyGame() {
       setCash(prev => prev + finalPrice);
       setDailyLog(prev => [...prev, { type: "sell", desc: bottle.displayName, amount: finalPrice }]);
       setInventory(p => p.filter(b => b.id !== selectedSellBottle));
-      setReputation(prev => prev + (finalPrice > bottle.value * 1.1 ? REP_PER_GREAT_DEAL : REP_PER_GOOD_DEAL));
+      setReputation(prev => prev + (finalPrice > (bottle.purchasePrice || 0) * 1.3 ? REP_PER_GREAT_DEAL : REP_PER_GOOD_DEAL));
+      // Track sell price in codex
+      trackPriceInCodex(bottle, "sell", finalPrice);
+      // Also track encounter for buyer-side bottles
+      trackBottleInCodex(bottle);
       audio.playSfx("sellSuccess");
     }
     setNegotiating(false);
     setNegResult(null);
     setSelectedSellBottle(null);
     advanceToNextCustomer();
-  }, [currentCustomer, negResult, negHistory, playerOffer, shelfFull, inventory, selectedSellBottle, audio, advanceToNextCustomer]);
+  }, [currentCustomer, negResult, negHistory, playerOffer, shelfFull, inventory, selectedSellBottle, audio, advanceToNextCustomer, trackBottleInCodex]);
 
   const walkAway = useCallback(() => {
     setNegotiating(false);
@@ -1391,13 +1485,15 @@ function WhiskeyGame() {
     const queue = generateDayQueue();
     setCustomerQueue(queue);
     setCustomerIndex(0);
-    setCurrentCustomer(queue.length > 0 ? queue[0] : null);
+    const first = queue.length > 0 ? queue[0] : null;
+    setCurrentCustomer(first);
+    if (first && first.type === "seller" && first.bottle) trackBottleInCodex(first.bottle);
     setDayStarted(true);
     setSelectedSellBottle(null);
     setNegotiating(false);
     setNegResult(null);
     audio.playSfx("buttonClick");
-  }, [generateDayQueue, audio]);
+  }, [generateDayQueue, audio, trackBottleInCodex]);
 
   const handlePass = useCallback(() => {
     audio.playSfx("pass");
@@ -1590,7 +1686,7 @@ function WhiskeyGame() {
 
           <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "16px 24px 0" }}>
             <div style={{ display: "flex", gap: "4px" }}>
-              {["storefront", "shop", "inventory", "brands"].map(tab => (
+              {["shop", "storefront", "inventory", "skills", "codex"].map(tab => (
                 <button key={tab} onClick={() => { setActiveTab(tab); audio.playSfx("buttonClick"); }}
                   style={{ padding: "10px 24px", border: "none", borderRadius: "8px 8px 0 0", cursor: "pointer", fontSize: "13px", fontFamily: "monospace", letterSpacing: "1px", textTransform: "uppercase", background: activeTab === tab ? "#261f18" : "transparent", color: activeTab === tab ? "#D4AF37" : "#8B7355", transition: "all 0.2s" }}>{tab}</button>
               ))}
@@ -1656,62 +1752,6 @@ function WhiskeyGame() {
                     Maximum tier reached. You've built an empire.
                   </div>
                 )}
-                {/* Skills section */}
-                <div style={{ background: "linear-gradient(145deg, #1c1714, #261f18)", borderRadius: "12px", padding: "20px", border: "1px solid #3a3028", width: "100%", maxWidth: "500px" }}>
-                  <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "16px", color: "#D4AF37", marginBottom: "12px", textAlign: "center" }}>
-                    Tools & Skills
-                  </div>
-                  {/* Year Estimation */}
-                  {(() => {
-                    const level = playerSkills.yearEstimation;
-                    const nextLevel = level + 1;
-                    const maxed = level >= 5;
-                    const cost = maxed ? 0 : SKILL_COSTS[nextLevel];
-                    const canBuy = !maxed && cash >= cost;
-                    return (
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", padding: "10px", background: "#120e0a", borderRadius: "8px" }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: "13px", color: "#F5E6CA", fontFamily: "monospace", marginBottom: "2px" }}>
-                            Year Estimation
-                          </div>
-                          <div style={{ fontSize: "11px", color: "#8B7355", fontFamily: "monospace" }}>
-                            {maxed ? "MASTER — Exact year identification" :
-                              level === 0 ? "Not unlocked — Cannot estimate release years" :
-                              `${SKILL_TIERS_LABEL[level]} — ±${YEAR_EST_ACCURACY[level]} year accuracy`}
-                          </div>
-                          {!maxed && (
-                            <div style={{ fontSize: "10px", color: "#8B735580", fontFamily: "monospace", marginTop: "2px" }}>
-                              Next: {SKILL_TIERS_LABEL[nextLevel]} (±{YEAR_EST_ACCURACY[nextLevel] === 0 ? "exact" : YEAR_EST_ACCURACY[nextLevel] + "yr"}) — ${cost.toLocaleString()}
-                            </div>
-                          )}
-                        </div>
-                        {/* Level pips */}
-                        <div style={{ display: "flex", gap: "3px", marginRight: "8px" }}>
-                          {[1,2,3,4,5].map(pip => (
-                            <div key={pip} style={{ width: "8px", height: "16px", borderRadius: "2px",
-                              background: pip <= level ? "#D4AF37" : "#3a3028", border: "1px solid #3a3028" }} />
-                          ))}
-                        </div>
-                        {!maxed && (
-                          <button onClick={() => {
-                            if (canBuy) {
-                              setCash(prev => prev - cost);
-                              setPlayerSkills(prev => ({ ...prev, yearEstimation: nextLevel }));
-                              audio.playSfx("storeUpgrade");
-                            }
-                          }} disabled={!canBuy}
-                            style={{ padding: "6px 14px", background: canBuy ? "linear-gradient(145deg, #D4AF37, #B8960C)" : "#3a3028",
-                              border: "none", borderRadius: "6px", color: canBuy ? "#1a1a1a" : "#8B7355", fontSize: "11px",
-                              fontWeight: "bold", cursor: canBuy ? "pointer" : "not-allowed", fontFamily: "monospace",
-                              opacity: canBuy ? 1 : 0.5, whiteSpace: "nowrap" }}>
-                            ${cost.toLocaleString()}
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-
                 {/* DEV: Tier selector */}
                 <div style={{ display: "flex", gap: "6px", alignItems: "center", marginTop: "8px" }}>
                   <span style={{ fontSize: "11px", color: "#8B7355", fontFamily: "monospace" }}>TIER (DEV)</span>
@@ -1736,8 +1776,9 @@ function WhiskeyGame() {
                   </div>
                 ) : !dayStarted ? (
                   /* --- DAY NOT STARTED --- */
-                  <div style={{ textAlign: "center", padding: "40px 20px" }}>
-                    <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "#D4AF37", fontSize: "24px", marginBottom: "8px" }}>Day {day}</h2>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "20px" }}>
+                    <StorefrontSVG storeName={storeName} tier={storeTier} />
+                    <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "#D4AF37", fontSize: "24px", marginBottom: "8px", marginTop: "20px" }}>Day {day}</h2>
                     <p style={{ color: "#8B7355", fontSize: "13px", marginBottom: "8px", fontFamily: "monospace" }}>
                       Expected customers today: {tierData.customersPerDay[0]}-{tierData.customersPerDay[1]}
                     </p>
@@ -1808,7 +1849,7 @@ function WhiskeyGame() {
                             <div style={{ fontSize: "14px", color: "#C4A882", fontStyle: "italic", textAlign: "center" }}>
                               "{currentCustomer.openLine}"
                             </div>
-                            <BottleCard bottle={currentCustomer.bottle} showRarity={showRarity} yearEstimate={estimateYear(currentCustomer.bottle)} />
+                            <BottleCard bottle={currentCustomer.bottle} showRarity={showRarity} yearEstimate={estimateYear(currentCustomer.bottle)} hideValue={true} />
                             {shelfFull && <div style={{ color: "#C0392B", fontSize: "13px", fontFamily: "monospace", padding: "8px 16px", background: "#C0392B15", borderRadius: "6px", border: "1px solid #C0392B30" }}>SHELF FULL — No room for more bottles.</div>}
 
                             {!shelfFull && !negotiating && (
@@ -1924,7 +1965,7 @@ function WhiskeyGame() {
                                             }}>
                                             <div style={{ fontSize: "12px", color: "#F5E6CA", fontFamily: "'Playfair Display', Georgia, serif", marginBottom: "4px", lineHeight: 1.3 }}>{b.displayName}</div>
                                             <div style={{ fontSize: "10px", color: "#8B7355", fontFamily: "monospace" }}>{b.typeName} · {b.age}yr · {b.proof}pf</div>
-                                            <div style={{ fontSize: "13px", color: "#D4AF37", fontFamily: "monospace", fontWeight: "bold", marginTop: "4px" }}>${b.value.toLocaleString()}</div>
+                                            <div style={{ fontSize: "13px", color: "#C4A882", fontFamily: "monospace", fontWeight: "bold", marginTop: "4px" }}>{b.purchasePrice != null ? `Paid: $${b.purchasePrice.toLocaleString()}` : ""}</div>
                                             {!isMatch && <div style={{ fontSize: "9px", color: "#8B735580", fontFamily: "monospace", marginTop: "2px" }}>Not what they asked for</div>}
                                           </div>
                                         );
@@ -1946,13 +1987,13 @@ function WhiskeyGame() {
                             {negotiating && (() => {
                               const bottle = inventory.find(b => b.id === selectedSellBottle);
                               if (!bottle) return null;
-                              const maxSlider = Math.round(bottle.value * 2);
+                              const maxSlider = Math.round((bottle.purchasePrice || bottle.value) * 3);
                               return (
                                 <div style={{ width: "100%", maxWidth: "460px" }}>
                                   {/* Show the bottle being negotiated */}
                                   <div style={{ background: "#2a221840", borderRadius: "8px", padding: "10px", marginBottom: "12px", textAlign: "center" }}>
                                     <div style={{ fontSize: "13px", color: "#F5E6CA", fontFamily: "'Playfair Display', Georgia, serif" }}>{bottle.displayName}</div>
-                                    <div style={{ fontSize: "11px", color: "#8B7355", fontFamily: "monospace" }}>Value: ${bottle.value.toLocaleString()}</div>
+                                    <div style={{ fontSize: "11px", color: "#8B7355", fontFamily: "monospace" }}>Paid: ${(bottle.purchasePrice ?? 0).toLocaleString()}</div>
                                   </div>
 
                                   <div style={{ background: "#1a1510", borderRadius: "12px", padding: "20px", border: "1px solid #3a3028" }}>
@@ -2053,11 +2094,171 @@ function WhiskeyGame() {
                 </div>
                 {filteredInventory.length === 0
                   ? <div style={{ textAlign: "center", padding: "60px 20px", color: "#5a4a38", fontSize: "14px" }}>{inventory.length === 0 ? "Your shelves are empty. Head to the shop to buy some bottles." : "No bottles match this filter."}</div>
-                  : <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", justifyContent: "center" }}>{filteredInventory.map(b => <BottleCard key={b.id} bottle={b} showRarity={showRarity} yearEstimate={estimateYear(b)} />)}</div>
+                  : <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", justifyContent: "center" }}>{filteredInventory.map(b => <BottleCard key={b.id} bottle={b} showRarity={showRarity} yearEstimate={estimateYear(b)} purchasePrice={b.purchasePrice} />)}</div>
                 }
               </div>
             )}
-            {activeTab === "brands" && <BrandPanel engine={engine} />}
+            {activeTab === "skills" && (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "20px", padding: "20px 0" }}>
+                <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "#D4AF37", fontSize: "22px", margin: 0 }}>Tools & Skills</h2>
+                <p style={{ color: "#8B7355", fontSize: "12px", fontFamily: "monospace", textAlign: "center", maxWidth: "450px" }}>
+                  Invest in your expertise. Better tools mean better deals.
+                </p>
+                {/* Skill: Year Estimation */}
+                {(() => {
+                  const SkillRow = ({ skillKey, label, desc, accuracyFn }) => {
+                    const level = playerSkills[skillKey];
+                    const nextLevel = level + 1;
+                    const maxed = level >= 5;
+                    const cost = maxed ? 0 : SKILL_COSTS[nextLevel];
+                    const canBuy = !maxed && cash >= cost;
+                    return (
+                      <div style={{ background: "linear-gradient(145deg, #1c1714, #261f18)", borderRadius: "12px", padding: "16px", border: "1px solid #3a3028", width: "100%", maxWidth: "500px" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px" }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: "14px", color: "#F5E6CA", fontFamily: "'Playfair Display', Georgia, serif", marginBottom: "4px" }}>{label}</div>
+                            <div style={{ fontSize: "11px", color: "#8B7355", fontFamily: "monospace" }}>
+                              {maxed ? `MASTER — ${desc.master}` : level === 0 ? `Not unlocked — ${desc.none}` : `${SKILL_TIERS_LABEL[level]} — ${accuracyFn(level)}`}
+                            </div>
+                            {!maxed && (
+                              <div style={{ fontSize: "10px", color: "#8B735580", fontFamily: "monospace", marginTop: "4px" }}>
+                                Next: {SKILL_TIERS_LABEL[nextLevel]} ({accuracyFn(nextLevel)})
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ display: "flex", gap: "3px", marginRight: "8px" }}>
+                            {[1,2,3,4,5].map(pip => (
+                              <div key={pip} style={{ width: "8px", height: "20px", borderRadius: "2px", background: pip <= level ? "#D4AF37" : "#3a3028", border: "1px solid #3a3028" }} />
+                            ))}
+                          </div>
+                          {!maxed && (
+                            <button onClick={() => {
+                              if (canBuy) { setCash(prev => prev - cost); setPlayerSkills(prev => ({ ...prev, [skillKey]: nextLevel })); audio.playSfx("storeUpgrade"); }
+                            }} disabled={!canBuy}
+                              style={{ padding: "8px 16px", background: canBuy ? "linear-gradient(145deg, #D4AF37, #B8960C)" : "#3a3028", border: "none", borderRadius: "6px", color: canBuy ? "#1a1a1a" : "#8B7355", fontSize: "12px", fontWeight: "bold", cursor: canBuy ? "pointer" : "not-allowed", fontFamily: "monospace", opacity: canBuy ? 1 : 0.5, whiteSpace: "nowrap" }}>
+                              ${cost.toLocaleString()}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  };
+                  return (
+                    <>
+                      <SkillRow skillKey="yearEstimation" label="Year Estimation"
+                        desc={{ none: "Cannot estimate release years", master: "Exact year identification" }}
+                        accuracyFn={(lv) => YEAR_EST_ACCURACY[lv] === 0 ? "Exact" : `±${YEAR_EST_ACCURACY[lv]} year accuracy`} />
+                      <SkillRow skillKey="industryKnowledge" label="Industry Knowledge"
+                        desc={{ none: "No insight into brand catalogs", master: "Complete brand catalog access" }}
+                        accuracyFn={(lv) => ["", "Basic brand awareness", "Common release info", "Detailed catalogs", "Expert-level archives", "Complete mastery"][lv]} />
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+            {activeTab === "codex" && (
+              <div>
+                <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "#D4AF37", fontSize: "22px", margin: "0 0 8px 0", textAlign: "center" }}>Codex</h2>
+                <p style={{ color: "#8B7355", fontSize: "12px", fontFamily: "monospace", textAlign: "center", marginBottom: "20px" }}>
+                  Your personal reference of every bottle you've encountered. Knowledge is power.
+                </p>
+                {Object.keys(codex).length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "60px 20px", color: "#5a4a38", fontSize: "14px" }}>
+                    No bottles encountered yet. Start trading to fill your codex.
+                  </div>
+                ) : (() => {
+                  const [expandedBrand, setExpandedBrandLocal] = [codexExpandedBrand, setCodexExpandedBrand];
+                  const [expandedVariant, setExpandedVariantLocal] = [codexExpandedVariant, setCodexExpandedVariant];
+                  const brands = Object.keys(codex).sort();
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                      {brands.map(brand => {
+                        const variants = codex[brand];
+                        const variantKeys = Object.keys(variants).sort();
+                        const isExpanded = expandedBrand === brand;
+                        return (
+                          <div key={brand}>
+                            <button onClick={() => setExpandedBrandLocal(isExpanded ? null : brand)}
+                              style={{ width: "100%", padding: "12px 16px", background: isExpanded ? "#2a221840" : "#1a1510", border: isExpanded ? "1px solid #D4AF37" : "1px solid #2a2218", borderRadius: isExpanded ? "8px 8px 0 0" : "8px", cursor: "pointer", textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                              <span style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "#F5E6CA", fontSize: "15px" }}>{brand}</span>
+                              <span style={{ fontSize: "11px", color: "#8B7355", fontFamily: "monospace" }}>{variantKeys.length} variant{variantKeys.length !== 1 ? "s" : ""}</span>
+                            </button>
+                            {isExpanded && (
+                              <div style={{ background: "#1a151080", border: "1px solid #2a2218", borderTop: "none", borderRadius: "0 0 8px 8px", padding: "8px" }}>
+                                {variantKeys.map(vk => {
+                                  const v = variants[vk];
+                                  const isVarExpanded = expandedVariant === `${brand}|${vk}`;
+                                  return (
+                                    <div key={vk} style={{ marginBottom: "4px" }}>
+                                      <button onClick={() => setExpandedVariantLocal(isVarExpanded ? null : `${brand}|${vk}`)}
+                                        style={{ width: "100%", padding: "8px 12px", background: isVarExpanded ? "#D4AF3710" : "transparent", border: isVarExpanded ? "1px solid #D4AF3740" : "1px solid #2a221840", borderRadius: "6px", cursor: "pointer", textAlign: "left" }}>
+                                        <span style={{ fontSize: "13px", color: "#C4A882", fontFamily: "monospace" }}>{v.variantKey}</span>
+                                        <span style={{ fontSize: "10px", color: "#8B7355", marginLeft: "8px" }}>({v.encounters}x seen)</span>
+                                      </button>
+                                      {isVarExpanded && (
+                                        <div style={{ padding: "12px", background: "#120e0a", borderRadius: "0 0 6px 6px", margin: "0 4px", border: "1px solid #2a221840", borderTop: "none" }}>
+                                          <div style={{ display: "flex", gap: "16px", alignItems: "flex-start" }}>
+                                            <BottleSVG bottle={v} size={100} />
+                                            <div style={{ flex: 1 }}>
+                                              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "14px", color: "#F5E6CA", marginBottom: "8px" }}>{v.displayName}</div>
+                                              <div style={{ fontSize: "11px", color: "#C4A882", fontFamily: "monospace", display: "flex", flexDirection: "column", gap: "4px" }}>
+                                                <div><span style={{ color: "#8B7355" }}>REGION</span> {v.region}</div>
+                                                <div><span style={{ color: "#8B7355" }}>RELEASE YEARS</span> {v.minYear && v.maxYear ? (v.minYear === v.maxYear ? `?–${v.maxYear}` : `${v.minYear}–${v.maxYear}`) : "Unknown"}</div>
+                                                <div><span style={{ color: "#8B7355" }}>PROOF</span> {v.lastProof}</div>
+                                                <div><span style={{ color: "#8B7355" }}>AGE</span> {v.lastAge}yr</div>
+                                                <div style={{ marginTop: "4px" }}>
+                                                  <span style={{ color: "#8B7355" }}>MASHBILL</span>
+                                                  <div style={{ display: "flex", gap: "8px", marginTop: "2px", flexWrap: "wrap" }}>
+                                                    {Object.entries(v.lastMashbill || {}).filter(([,val]) => val > 0).sort(([,a],[,b]) => b - a).map(([grain, pct]) => {
+                                                      const gc = { Corn: "#D4A017", Rye: "#A0522D", Barley: "#DAA520", Wheat: "#DEB887" };
+                                                      return <span key={grain} style={{ color: gc[grain] || "#888" }}>{grain} {pct}%</span>;
+                                                    })}
+                                                  </div>
+                                                </div>
+                                                {v.modifiers.length > 0 && (
+                                                  <div style={{ marginTop: "4px", display: "flex", gap: "4px", flexWrap: "wrap" }}>
+                                                    {v.modifiers.map((m, mi) => <span key={mi} style={tagStyle("#5B3A29")}>{m}</span>)}
+                                                  </div>
+                                                )}
+                                                {/* Price History */}
+                                                {v.priceHistory && Object.keys(v.priceHistory).length > 0 && (
+                                                  <div style={{ marginTop: "10px", borderTop: "1px solid #2a2218", paddingTop: "8px" }}>
+                                                    <div style={{ color: "#8B7355", fontSize: "10px", letterSpacing: "1px", marginBottom: "6px" }}>DEAL HISTORY</div>
+                                                    {Object.entries(v.priceHistory).sort(([a],[b]) => a === "unknown" ? 1 : b === "unknown" ? -1 : Number(a) - Number(b)).map(([yearKey, ph]) => (
+                                                      <div key={yearKey} style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center", padding: "4px 0", borderBottom: "1px solid #2a221830" }}>
+                                                        <span style={{ color: "#F5E6CA", minWidth: "60px" }}>{yearKey === "unknown" ? "Unknown Yr" : yearKey}</span>
+                                                        {(ph.minBuy != null || ph.maxBuy != null) && (
+                                                          <span style={{ color: "#C0392B" }}>
+                                                            Buy: ${ph.minBuy?.toLocaleString() ?? "?"}{ph.maxBuy != null && ph.maxBuy !== ph.minBuy ? `–$${ph.maxBuy.toLocaleString()}` : ""}
+                                                          </span>
+                                                        )}
+                                                        {(ph.minSell != null || ph.maxSell != null) && (
+                                                          <span style={{ color: "#22C55E" }}>
+                                                            Sell: ${ph.minSell?.toLocaleString() ?? "?"}{ph.maxSell != null && ph.maxSell !== ph.minSell ? `–$${ph.maxSell.toLocaleString()}` : ""}
+                                                          </span>
+                                                        )}
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
           </div>
         </>
       )}
