@@ -1044,7 +1044,20 @@ function StoreNameScreen({ onSubmit }) {
 // ============================================================================
 function WhiskeyGame() {
   const [screen, setScreen] = useState("title");
-  const [saves, setSaves] = useState([null, null, null]);
+  const [saves, setSaves] = useState(() => {
+    try {
+      const stored = localStorage.getItem("rareSpirits_saves");
+      if (stored) return JSON.parse(stored);
+    } catch (e) {}
+    return [null, null, null];
+  });
+
+  // Persist saves to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem("rareSpirits_saves", JSON.stringify(saves));
+    } catch (e) {}
+  }, [saves]);
   const [activeSlot, setActiveSlot] = useState(null);
   const [showOptions, setShowOptions] = useState(false);
   const [storeName, setStoreName] = useState("");
