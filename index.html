@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Rare Spirits — Whiskey Trading Co.</title>
+  <title>Tater's Treasures Whiskey Trading Co.</title>
   <meta name="theme-color" content="#0d0a07">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -94,13 +94,14 @@ const BRAND_PREFIXES = [
   "Old", "Eagle", "Heritage", "Iron", "Golden", "Stone", "Copper", "Black",
   "Red", "Silver", "Crown", "Wild", "Lost", "Timber", "River", "Mountain",
   "Prairie", "Hawk", "Bear", "Oak", "Cedar", "Maple", "Pine", "Sage",
-  "Frontier", "Pioneer", "Summit", "Valley", "Ridge", "Creek",
+  "Frontier", "Pioneer", "Summit", "Valley", "Ridge", "Creek", "Buffalo",
+  "Rare", "Lucky", 
 ];
 const BRAND_SUFFIXES = [
   "Creek", "Ridge", "Hollow", "Springs", "Reserve", "Trail", "Rock",
   "Run", "Fork", "Bend", "Branch", "Mill", "Gap", "Bluff", "Point",
   "Haven", "Forge", "Bridge", "Hill", "Glen", "Barrel", "Still",
-  "Cask", "Distillery", "Bros", "& Sons", "Estate", "Works",
+  "Cask", "Distillery", "Bros", "& Sons", "Estate", "Works", "Cooper", "Craft",
 ];
 
 // ============================================================================
@@ -1210,7 +1211,7 @@ function WhiskeyGame() {
       sellerText: "That's a really nice bottle you've got there.",
       buyerText: "You clearly have excellent taste.",
       effects: {
-        desperate: "good", casual: "great", shrewd: "neutral", collector: "good", impatient: "neutral", friendly: "great",
+        desperate: "good", casual: "great", shrewd: "neutral", collector: "good", impatient: "bad", friendly: "great",
       },
       responses: {
         great: { seller: ['"Oh, you think so? Maybe I should hold onto it... nah, just kidding. Let\'s make a deal."', '"Aw, thanks! That means a lot coming from someone in the business."'], buyer: ['"You really think so? Well then, I trust your pricing."', '"That\'s kind of you to say! I\'m happy to pay fairly for quality."'] },
@@ -1290,9 +1291,9 @@ function WhiskeyGame() {
     if (forBuyer) return "I should mention, the provenance on this one is a bit uncertain.";
     const flaws = [];
     if (!bottle.yearKnown) flaws.push("no year on the label");
-    if (bottle.ageDisplay === "Unstated") flaws.push("no age statement");
-    if (bottle.proof <= 90) flaws.push("pretty standard proof");
-    if (bottle.modifiers.length === 0) flaws.push("no special finishes or releases");
+    if (bottle.ageDisplay === "Unstated") flaws.push("no age statement on the label");
+    if (bottle.proof <= 90) flaws.push("pretty low proof for the segment");
+    if (bottle.modifiers.length === 0) flaws.push("no special finishe and it's not a special release");
     if (flaws.length === 0) flaws.push("a few shelf marks on the bottle");
     return `I notice there's ${flaws[0]}${flaws.length > 1 ? ` and ${flaws[1]}` : ""}.`;
   }, []);
@@ -1847,7 +1848,7 @@ function WhiskeyGame() {
       {screen === "title" && (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", padding: "20px", textAlign: "center" }}>
           <div style={{ width: "100%", maxWidth: "540px", marginBottom: "24px", opacity: 0.85 }}><TitleShelfDisplay /></div>
-          <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "clamp(32px, 6vw, 52px)", color: "#D4AF37", margin: "0 0 4px 0", letterSpacing: "4px", textShadow: "0 0 30px rgba(212,175,55,0.3), 0 2px 4px rgba(0,0,0,0.5)", animation: "titlePulse 3s ease-in-out infinite" }}>RARE SPIRITS</h1>
+          <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "clamp(32px, 6vw, 52px)", color: "#D4AF37", margin: "0 0 4px 0", letterSpacing: "4px", textShadow: "0 0 30px rgba(212,175,55,0.3), 0 2px 4px rgba(0,0,0,0.5)", animation: "titlePulse 3s ease-in-out infinite" }}>TATER'S TREASURES</h1>
           <div style={{ fontFamily: "monospace", fontSize: "clamp(10px, 2vw, 14px)", color: "#8B7355", letterSpacing: "6px", marginBottom: "40px" }}>WHISKEY TRADING CO.</div>
           <div style={{ display: "flex", flexDirection: "column", gap: "12px", width: "260px" }}>
             <button onClick={() => { setScreen("saves"); audio.playSfx("buttonClick"); }} style={menuBtnStyle}
