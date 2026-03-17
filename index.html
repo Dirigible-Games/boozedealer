@@ -73,6 +73,86 @@ const WHISKEY_TYPES = {
       { name: "Special Release", requirements: { specialMashbill: true }, combinable: false },
     ],
   },
+  "Single Malt Scotch": {
+    regionTags: ["Scottish"],
+    mashbill: {
+      primary: { grain: "Malted Barley", min: 100, max: 100 },
+      secondary: [],
+    },
+    proof: { min: 80, max: 130 },
+    age: { min: 3, max: 30 },
+    modifiers: [
+      { name: "Peated", requirements: {}, combinable: true },
+      { name: "Heavily Peated", requirements: {}, combinable: false },
+      { name: "Cask Strength", requirements: { minProof: 112 }, combinable: true },
+      { name: "Sherry Cask", requirements: {}, combinable: false },
+      { name: "Port Cask", requirements: {}, combinable: false },
+      { name: "Ex-Bourbon Cask", requirements: {}, combinable: false },
+      { name: "Double Cask", requirements: { minAge: 6 }, combinable: false },
+      { name: "Quarter Cask", requirements: {}, combinable: false },
+      { name: "Single Cask", requirements: { minAge: 8 }, combinable: true },
+      { name: "Vintage", requirements: { minAge: 15 }, combinable: true },
+      { name: "Special Release", requirements: { specialMashbill: true }, combinable: false },
+    ],
+  },
+  "Blended Scotch": {
+    regionTags: ["Scottish"],
+    mashbill: {
+      primary: { grain: "Malted Barley", min: 30, max: 60 },
+      secondary: ["Wheat", "Corn"],
+    },
+    proof: { min: 80, max: 92 },
+    age: { min: 3, max: 25 },
+    modifiers: [
+      { name: "Peated", requirements: {}, combinable: true },
+      { name: "Sherry Cask", requirements: {}, combinable: false },
+      { name: "Double Cask", requirements: { minAge: 6 }, combinable: false },
+      { name: "Aged Reserve", requirements: { minAge: 12 }, combinable: true },
+      { name: "Special Release", requirements: { specialMashbill: true }, combinable: false },
+    ],
+  },
+  "Irish Whiskey": {
+    regionTags: ["Irish"],
+    mashbill: {
+      primary: { grain: "Malted Barley", min: 40, max: 100 },
+      secondary: ["Corn", "Wheat", "Oats"],
+    },
+    proof: { min: 80, max: 120 },
+    age: { min: 3, max: 25 },
+    modifiers: [
+      { name: "Single Pot Still", requirements: { minAge: 3 }, combinable: true },
+      { name: "Single Malt", requirements: {}, combinable: true },
+      { name: "Cask Strength", requirements: { minProof: 110 }, combinable: true },
+      { name: "Sherry Finish", requirements: {}, combinable: false },
+      { name: "Port Finish", requirements: {}, combinable: false },
+      { name: "Rum Cask Finish", requirements: {}, combinable: false },
+      { name: "Stout Cask Finish", requirements: {}, combinable: false },
+      { name: "Triple Distilled", requirements: {}, combinable: true },
+      { name: "Single Cask", requirements: { minAge: 8 }, combinable: true },
+      { name: "Special Release", requirements: { specialMashbill: true }, combinable: false },
+    ],
+  },
+  "Japanese Whisky": {
+    regionTags: ["Japanese"],
+    mashbill: {
+      primary: { grain: "Malted Barley", min: 60, max: 100 },
+      secondary: ["Corn", "Rice"],
+    },
+    proof: { min: 80, max: 114 },
+    age: { min: 3, max: 30 },
+    modifiers: [
+      { name: "Peated", requirements: {}, combinable: true },
+      { name: "Mizunara Oak", requirements: { minAge: 8 }, combinable: false },
+      { name: "Sakura Wood", requirements: {}, combinable: false },
+      { name: "Single Malt", requirements: {}, combinable: true },
+      { name: "Single Grain", requirements: {}, combinable: false },
+      { name: "Cask Strength", requirements: { minProof: 104 }, combinable: true },
+      { name: "Sherry Cask", requirements: {}, combinable: false },
+      { name: "Single Cask", requirements: { minAge: 10 }, combinable: true },
+      { name: "Vintage", requirements: { minAge: 15 }, combinable: true },
+      { name: "Special Release", requirements: { specialMashbill: true }, combinable: false },
+    ],
+  },
 };
 
 // ============================================================================
@@ -88,20 +168,71 @@ const RARITIES = [
 ];
 
 // ============================================================================
-// BRAND NAME GENERATION DATA
+// REGION-SPECIFIC BRAND NAME GENERATION
 // ============================================================================
-const BRAND_PREFIXES = [
-  "Old", "Eagle", "Heritage", "Iron", "Golden", "Stone", "Copper", "Black",
-  "Red", "Silver", "Crown", "Wild", "Lost", "Timber", "River", "Mountain",
-  "Prairie", "Hawk", "Bear", "Oak", "Cedar", "Maple", "Pine", "Sage",
-  "Frontier", "Pioneer", "Summit", "Valley", "Ridge", "Creek",
-];
-const BRAND_SUFFIXES = [
-  "Creek", "Ridge", "Hollow", "Springs", "Reserve", "Trail", "Rock",
-  "Run", "Fork", "Bend", "Branch", "Mill", "Gap", "Bluff", "Point",
-  "Haven", "Forge", "Bridge", "Hill", "Glen", "Barrel", "Still",
-  "Cask", "Distillery", "Bros", "& Sons", "Estate", "Works",
-];
+const REGIONAL_NAMES = {
+  American: {
+    person: { weight: 25, firsts: ["Elijah","Henry","James","William","Thomas","Samuel","Charles","George","Arthur","Franklin","Theodore","Abraham","Jeremiah","Ezekiel","Nathaniel","Benjamin","Cornelius","Augustus","Hattie","Eleanor","Margaret","Virginia","Adelaide","Florence","Josephine"], lasts: ["Hawkins","Crawford","Whitfield","Calloway","Prescott","Sutherland","Montgomery","Blackwell","Hargrove","Winslow","Pemberton","Thornton","Beckett","Mercer","Garrison","Whitmore","Dalton","Holbrook","Ramsey","Sterling","Covington","Hartwell"], suffixes: ["& Sons","& Co","Estate","Bros","Legacy","Reserve","Family Reserve"] },
+    titled: { weight: 8, titles: ["Colonel","Judge","Doc","Major","Captain","Reverend"], lasts: ["Hawkins","Crawford","Calloway","Prescott","Thornton","Beckett","Mercer","Garrison","Dalton","Taylor","Baker","Cooper","Porter","Mason"] },
+    place: { weight: 30, prefixes: ["Old","Heritage","Golden","Grand","Stone","River","Mountain","Prairie","Valley","Ridge","Timber","Canyon","Meadow","Highland","Frontier","Pioneer","Summit","Wild","Lost","Lone","Broken","Crooked","Smoky","Dusty","Rolling","Still","Northern","Southern","Western"], suffixes: ["Creek","Run","Fork","Bend","Branch","Springs","Falls","Crossing","Ridge","Hollow","Gap","Bluff","Point","Hill","Knob","Pass","Rock","Trail","Trace","Grove","Field"] },
+    industry: { weight: 15, prefixes: ["Old","Golden","Stone","Oak","Cedar","Maple","Copper","Iron","Black","Red","Silver","Frontier","Pioneer","Crooked","Smoky"], suffixes: ["Mill","Forge","Bridge","Haven","Landing","Barrel","Still","Cask","Distillery","Works","Cooperage","Warehouse"] },
+    animal: { weight: 12, animals: ["Eagle","Hawk","Bear","Wolf","Stag","Falcon","Raven","Stallion","Fox","Elk","Bison","Heron","Owl","Ram"], suffixes: ["Creek","Ridge","Hollow","Springs","Run","Rock","Point","Nest","Den","Crossing","Barrel","Reserve"] },
+    character: { weight: 10, traits: ["Honest","Bold","Rugged","Steadfast","Resolute","Hardy","True","Loyal","Humble","Worthy"], suffixes: ["Reserve","Standard","Select","Choice","Premium","Barrel","Cask","Tradition","Legacy","& Co"] },
+  },
+  Canadian: {
+    person: { weight: 25, firsts: ["Duncan","Angus","Malcolm","Hamish","William","James","Robert","Alexander","Douglas","Fraser","Jean-Pierre","Louis","Henri","Pierre","Jacques"], lasts: ["MacLeod","Campbell","Fraser","MacDonald","Stewart","Morrison","Ross","Murray","Cameron","Sinclair","Tremblay","Gagnon","Bouchard","Pelletier"], suffixes: ["& Sons","& Co","Estate","Reserve","Legacy"] },
+    place: { weight: 35, prefixes: ["Northern","Crown","Royal","Golden","Grand","Stone","River","Lake","Mountain","Prairie","Valley","Highland","Frost","Cedar","Maple","Birch","Pine","Timber","Wild","Lost","Still"], suffixes: ["Creek","Falls","Ridge","Crossing","Point","Bay","Bluff","Glen","Pass","Springs","Rock","Trail","Harbor","Lake"] },
+    industry: { weight: 20, prefixes: ["Northern","Crown","Royal","Cedar","Maple","Copper","Iron","Stone","Frost","Lake"], suffixes: ["Mill","Barrel","Still","Cask","Distillery","Works","Cooperage","Cellar","Lodge"] },
+    animal: { weight: 15, animals: ["Moose","Bear","Wolf","Eagle","Lynx","Elk","Caribou","Hawk","Otter","Beaver","Fox","Owl"], suffixes: ["Creek","Ridge","Bay","Den","Point","Falls","Run","Reserve","Crossing"] },
+    character: { weight: 5, traits: ["True","Noble","Steadfast","Hardy","Northern"], suffixes: ["Reserve","Select","Premium","Standard","Tradition"] },
+  },
+  Scottish: {
+    person: { weight: 20, firsts: ["Angus","Duncan","Hamish","Alistair","Callum","Fergus","Malcolm","Finlay","Lachlan","Rory","Tavish","Iain","Gregor","Murdo","Eilidh","Morag","Fiona","Isla"], lasts: ["MacGregor","MacDougall","Campbell","MacLeod","Fraser","Stewart","Morrison","Ross","Buchanan","MacKenzie","MacAllan","Sutherland","MacPherson","Sinclair","Gordon","Wallace","Graham"], suffixes: ["& Sons","Estate","Legacy","Reserve"] },
+    titled: { weight: 5, titles: ["Laird","Lord"], lasts: ["MacGregor","Campbell","MacLeod","Fraser","Stewart","Buchanan","MacKenzie","Gordon","Wallace","Sutherland"] },
+    place: { weight: 35, prefixes: ["Glen","Loch","Ben","Strath","Old","Royal","Highland","Island","Golden","Ancient","Misty","Stone","Dark","Storm"], suffixes: ["Moray","Livet","Fiddich","Spey","Ness","Tay","Lomond","Islay","Mull","Skye","Orkney","Dufftown","Elgin","Craggan","Torr","Brae","Burn","Knowe","Muir","Moor","Craig"] },
+    industry: { weight: 20, prefixes: ["Glen","Loch","Highland","Old","Royal","Stone","Ancient","Golden"], suffixes: ["Distillery","Maltings","Cask","Cellars","Still","Cooperage","Works"] },
+    animal: { weight: 10, animals: ["Stag","Grouse","Eagle","Raven","Osprey","Otter","Heron","Fox","Hart"], suffixes: ["Glen","Craig","Burn","Moor","Reserve","Cask","Nest"] },
+    character: { weight: 10, traits: ["Noble","Ancient","Bold","True","Grand","Worthy","Proud","Highland"], suffixes: ["Reserve","Select","Cask","Malt","Tradition","Legacy"] },
+  },
+  Irish: {
+    person: { weight: 25, firsts: ["Padraig","Seamus","Declan","Cormac","Niall","Ronan","Ciaran","Eamon","Liam","Connor","Brendan","Fintan","Lorcan","Oisin","Siobhan","Aisling","Brigid","Maeve"], lasts: ["O'Brien","Murphy","Sullivan","Gallagher","Doyle","Walsh","Byrne","Kavanagh","Brennan","Flanagan","Quinn","Connolly","Fitzpatrick","O'Malley","Kiernan","Madigan"], suffixes: ["& Sons","Estate","Legacy","& Co"] },
+    place: { weight: 35, prefixes: ["Old","Royal","Golden","Grand","Green","Ancient","Wild","Misty","Stone","River","Lake"], suffixes: ["Abbey","Cross","Tower","Bridge","Harbor","Quay","Glen","Vale","Mead","Derry","Kerry","Cork","Clare","Galway","Wicklow","Wexford","Antrim","Donegal","Tipperary","Kilkenny","Connemara"] },
+    industry: { weight: 20, prefixes: ["Old","Royal","Green","Stone","River","Golden","Ancient","Grand"], suffixes: ["Distillery","Still","Cask","Cellars","Maltings","Works","Cooperage","House"] },
+    animal: { weight: 10, animals: ["Hare","Heron","Raven","Fox","Stag","Salmon","Hawk","Otter","Swan"], suffixes: ["Glen","Cross","Abbey","Bridge","Reserve","Cask","Meadow"] },
+    character: { weight: 10, traits: ["Noble","Bold","True","Proud","Ancient","Worthy","Grand","Honest"], suffixes: ["Reserve","Select","Pot Still","Cask","Tradition","Legacy","Label"] },
+  },
+  Japanese: {
+    person: { weight: 15, firsts: ["Takeshi","Masataka","Shinjiro","Keizo","Ichiro","Kazuo","Yusuke","Haruki","Nobuo","Tatsuro","Akira","Isamu","Koji","Ryu","Hanako","Yuki","Sakura"], lasts: ["Taketsuru","Torii","Miyamoto","Yamamoto","Nakamura","Fujimoto","Tanaka","Watanabe","Shimizu","Hayashi","Sato","Takahashi","Kuroda","Matsuda","Ogawa"], suffixes: ["Estate","Legacy","Reserve"] },
+    place: { weight: 35, prefixes: ["Mount","Lake","Ancient","Golden","Royal","Noble","Hidden","Misty","Silent","White","Spring"], suffixes: ["Fuji","Hakushu","Yoichi","Chichibu","Yamazaki","Miyagikyo","Karuizawa","Shinshu","Gotemba","Akashi","Okayama","Hokkaido","Kyoto","Osaka","Nagano","Sendai"] },
+    industry: { weight: 25, prefixes: ["Mount","Lake","Golden","Ancient","Noble","Hidden","Misty","Silent","White","Spring"], suffixes: ["Distillery","Barrel","Cask","Cellar","Works","Still","House"] },
+    animal: { weight: 10, animals: ["Crane","Dragon","Tiger","Phoenix","Koi","Hawk","Fox","Owl","Heron"], suffixes: ["Cask","Reserve","Barrel","Still","Nest","Den"] },
+    character: { weight: 15, traits: ["Noble","Ancient","Pure","Silent","Harmony","Serene","Eternal","True","Sovereign"], suffixes: ["Reserve","Select","Cask","Malt","Tradition","Premium","Legacy"] },
+  },
+};
+
+function generateBrandName(rng, region) {
+  const naming = REGIONAL_NAMES[region] || REGIONAL_NAMES.American;
+  const patterns = Object.entries(naming);
+  const totalWeight = patterns.reduce((s, [,p]) => s + p.weight, 0);
+  let roll = rng() * totalWeight;
+  let patternKey = patterns[0][0], pattern = patterns[0][1];
+  for (const [key, p] of patterns) { roll -= p.weight; if (roll <= 0) { patternKey = key; pattern = p; break; } }
+
+  if (patternKey === "person") {
+    const first = pattern.firsts[Math.floor(rng() * pattern.firsts.length)];
+    const pool = rng() < 0.75 ? pattern.lasts : pattern.suffixes;
+    return `${first} ${pool[Math.floor(rng() * pool.length)]}`;
+  } else if (patternKey === "titled") {
+    return `${pattern.titles[Math.floor(rng() * pattern.titles.length)]} ${pattern.lasts[Math.floor(rng() * pattern.lasts.length)]}`;
+  } else if (patternKey === "animal") {
+    return `${pattern.animals[Math.floor(rng() * pattern.animals.length)]} ${pattern.suffixes[Math.floor(rng() * pattern.suffixes.length)]}`;
+  } else if (patternKey === "character") {
+    return `${pattern.traits[Math.floor(rng() * pattern.traits.length)]} ${pattern.suffixes[Math.floor(rng() * pattern.suffixes.length)]}`;
+  } else {
+    return `${pattern.prefixes[Math.floor(rng() * pattern.prefixes.length)]} ${pattern.suffixes[Math.floor(rng() * pattern.suffixes.length)]}`;
+  }
+}
+
 
 // ============================================================================
 // BOTTLE SHAPE TEMPLATES
@@ -263,16 +394,30 @@ class WhiskeyEngine {
   }
   _initBrands() {
     const rng = seededRandom(this.gameSeed);
-    const numBrands = 8 + Math.floor(rng() * 8);
+    const numBrands = 16 + Math.floor(rng() * 10);
     const usedNames = new Set();
-    for (let i = 0; i < numBrands; i++) {
+    // Assign regions first, then generate region-appropriate names
+    const allRegions = ["American", "Canadian", "Scottish", "Irish", "Japanese"];
+    const minPerRegion = { American: Math.max(2, Math.ceil(numBrands * 0.25)), Canadian: 1, Scottish: Math.max(1, Math.ceil(numBrands * 0.15)), Irish: 1, Japanese: 1 };
+    const regionSlots = [];
+    for (const reg of allRegions) { for (let j = 0; j < minPerRegion[reg]; j++) regionSlots.push(reg); }
+    const regionWeights = [["American", 0.30], ["Canadian", 0.10], ["Scottish", 0.25], ["Irish", 0.15], ["Japanese", 0.20]];
+    while (regionSlots.length < numBrands) {
+      let roll = rng(), pick = "American";
+      for (const [reg, w] of regionWeights) { roll -= w; if (roll <= 0) { pick = reg; break; } }
+      regionSlots.push(pick);
+    }
+    // Shuffle
+    for (let i = regionSlots.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [regionSlots[i], regionSlots[j]] = [regionSlots[j], regionSlots[i]]; }
+    // Generate region-appropriate names
+    for (let i = 0; i < regionSlots.length; i++) {
+      const region = regionSlots[i];
       let name, attempts = 0;
-      do { name = `${BRAND_PREFIXES[Math.floor(rng() * BRAND_PREFIXES.length)]} ${BRAND_SUFFIXES[Math.floor(rng() * BRAND_SUFFIXES.length)]}`; attempts++; } while (usedNames.has(name) && attempts < 50);
+      do { name = generateBrandName(rng, region); attempts++; } while (usedNames.has(name) && attempts < 50);
       if (usedNames.has(name)) continue;
       usedNames.add(name);
-      const allRegions = ["American", "Canadian"];
       this.brands[name] = {
-        region: allRegions[Math.floor(rng() * allRegions.length)], types: {},
+        region, types: {},
         bottleShapeIdx: Math.floor(rng() * BOTTLE_SHAPES.length),
         bottleColor: BOTTLE_COLORS[Math.floor(rng() * BOTTLE_COLORS.length)],
         capColor: CAP_COLORS[Math.floor(rng() * CAP_COLORS.length)],
@@ -302,7 +447,7 @@ class WhiskeyEngine {
     return brand.types[typeName];
   }
   _selectModifiers(typeDef, proof, age, rng) {
-    const modifiers = []; if (rng() > 0.55) return modifiers;
+    const modifiers = [];
     const available = typeDef.modifiers.filter(m => {
       if (m.requirements.minAge && age < m.requirements.minAge) return false;
       if (m.requirements.minProof && proof < m.requirements.minProof) return false;
@@ -371,13 +516,17 @@ class WhiskeyEngine {
     const age = typeDef.age.min + Math.floor(rng() * (maxAgeForTier - typeDef.age.min + 1));
     const year = 2026 - age - Math.floor(rng() * 5);
     
-    // Proof: lower tiers skew toward standard proofs
+    // Proof: use a bell curve biased toward standard proofs, but allow full range at any tier
+    // Most bottles cluster 80-110, but outliers up to max are always possible
     const proofRange = typeDef.proof.max - typeDef.proof.min;
-    const maxProofForTier = typeDef.proof.min + Math.floor(proofRange * (0.4 + tierLevel * 0.1));
-    let proof = typeDef.proof.min + Math.floor(rng() * (Math.min(maxProofForTier, typeDef.proof.max) - typeDef.proof.min + 1));
+    const proofCenter = typeDef.proof.min + Math.floor(proofRange * (0.25 + tierLevel * 0.08));
+    // Two random rolls averaged = bell curve, then allow one "lucky" high roll
+    const roll1 = rng(), roll2 = rng(), proofRoll = Math.max(roll1, rng() > (0.85 - tierLevel * 0.05) ? roll2 : roll1);
+    let proof = Math.floor(typeDef.proof.min + proofRoll * proofRange);
+    proof = Math.max(typeDef.proof.min, Math.min(typeDef.proof.max, proof));
     
-    // Modifiers: lower tiers have fewer modifiers
-    const modifierChance = 0.15 + tierLevel * 0.07; // tier 1: ~22%, tier 6: ~57%
+    // Modifiers: chance scales with tier, always some baseline chance
+    const modifierChance = 0.25 + tierLevel * 0.08; // tier 1: ~33%, tier 6: ~73%
     let modifiers = rng() < modifierChance ? this._selectModifiers(typeDef, proof, age, rng) : [];
     if (modifiers.includes("Bottled-in-Bond")) proof = 100;
     
@@ -478,13 +627,13 @@ function BottleCard({ bottle, showRarity = false, onClick, yearEstimate = null, 
         <div style={{ fontSize: "10px", color: "var(--text-dim)", marginBottom: "4px", fontFamily: "monospace", letterSpacing: "1px" }}>MASHBILL</div>
         <div style={{ display: "flex", borderRadius: "4px", overflow: "hidden", height: "16px" }}>
           {Object.entries(bottle.mashbill).filter(([,v]) => v > 0).sort(([,a],[,b]) => b - a).map(([grain, pct]) => {
-            const gc = { Corn: "var(--accent)", Rye: "#A0522D", Barley: "#DAA520", Wheat: "#DEB887" };
+            const gc = { Corn: "var(--accent)", Rye: "#A0522D", Barley: "#DAA520", "Malted Barley": "#C8A240", Wheat: "#DEB887", Oats: "#BDB76B", Rice: "#E8DCC8" };
             return <div key={grain} style={{ width: `${pct}%`, background: gc[grain] || "#888", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "8px", color: "var(--bg1)", fontWeight: "bold", fontFamily: "monospace", whiteSpace: "nowrap", overflow: "hidden" }} title={`${grain}: ${pct}%`}>{pct >= 15 ? `${grain.slice(0,3)} ${pct}%` : pct >= 8 ? `${pct}` : ""}</div>;
           })}
         </div>
         <div style={{ display: "flex", gap: "8px", marginTop: "4px", flexWrap: "wrap" }}>
           {Object.entries(bottle.mashbill).filter(([,v]) => v > 0).sort(([,a],[,b]) => b - a).map(([grain, pct]) => {
-            const gc = { Corn: "var(--accent)", Rye: "#A0522D", Barley: "#DAA520", Wheat: "#DEB887" };
+            const gc = { Corn: "var(--accent)", Rye: "#A0522D", Barley: "#DAA520", "Malted Barley": "#C8A240", Wheat: "#DEB887", Oats: "#BDB76B", Rice: "#E8DCC8" };
             return <span key={grain} style={{ fontSize: "9px", color: gc[grain] || "#888", fontFamily: "monospace" }}>{grain} {pct}%</span>;
           })}
         </div>
@@ -936,12 +1085,12 @@ function StorefrontSVG({ storeName, tier = 1 }) {
 // COLOR THEMES
 // ============================================================================
 const THEMES = {
-  classic: { name: "Bourbon Barrel", accent: "#D4AF37", accentDark: "#B8960C", bg1: "#0d0a07", bg2: "#1a1510", bg3: "#261f18", surface: "#1a1510", border: "#3a3028", text: "#F5E6CA", textMuted: "#C4A882", textDim: "#8B7355", success: "#22C55E", danger: "#C0392B", buyAccent: "#3B82F6" },
-  midnight: { name: "Blue", accent: "#60A5FA", accentDark: "#2563EB", bg1: "#070B14", bg2: "#0F1729", bg3: "#1A2340", surface: "#0F1729", border: "#2A3555", text: "#E2E8F0", textMuted: "#94A3B8", textDim: "#64748B", success: "#34D399", danger: "#F87171", buyAccent: "#A78BFA" },
-  ember: { name: "Red", accent: "#F97316", accentDark: "#C2410C", bg1: "#0C0704", bg2: "#1A0F09", bg3: "#2A1A10", surface: "#1A0F09", border: "#3D2816", text: "#FDE8D0", textMuted: "#D4A574", textDim: "#9A6E42", success: "#4ADE80", danger: "#EF4444", buyAccent: "#FBBF24" },
-  forest: { name: "Green", accent: "#4ADE80", accentDark: "#16A34A", bg1: "#050C07", bg2: "#0C1A10", bg3: "#162818", surface: "#0C1A10", border: "#1E3A22", text: "#D9F2E0", textMuted: "#86CEAA", textDim: "#4E8B6A", success: "#A3E635", danger: "#FB923C", buyAccent: "#22D3EE" },
-  royal: { name: "Purple", accent: "#A78BFA", accentDark: "#7C3AED", bg1: "#08061A", bg2: "#110E2A", bg3: "#1C1840", surface: "#110E2A", border: "#2E2855", text: "#E8E0F5", textMuted: "#B8A5D4", textDim: "#7B6BA0", success: "#34D399", danger: "#FB7185", buyAccent: "#F472B6" },
-  noir: { name: "Black", accent: "#E5E5E5", accentDark: "#A3A3A3", bg1: "#0A0A0A", bg2: "#141414", bg3: "#1E1E1E", surface: "#141414", border: "#2E2E2E", text: "#F5F5F5", textMuted: "#D4D4D4", textDim: "#737373", success: "#4ADE80", danger: "#F87171", buyAccent: "#60A5FA" },
+  classic: { name: "Classic Gold", accent: "#D4AF37", accentDark: "#B8960C", bg1: "#0d0a07", bg2: "#1a1510", bg3: "#261f18", surface: "#1a1510", border: "#3a3028", text: "#F5E6CA", textMuted: "#C4A882", textDim: "#8B7355", success: "#22C55E", danger: "#C0392B", buyAccent: "#3B82F6" },
+  midnight: { name: "Midnight Blue", accent: "#60A5FA", accentDark: "#2563EB", bg1: "#070B14", bg2: "#0F1729", bg3: "#1A2340", surface: "#0F1729", border: "#2A3555", text: "#E2E8F0", textMuted: "#94A3B8", textDim: "#64748B", success: "#34D399", danger: "#F87171", buyAccent: "#A78BFA" },
+  ember: { name: "Ember", accent: "#F97316", accentDark: "#C2410C", bg1: "#0C0704", bg2: "#1A0F09", bg3: "#2A1A10", surface: "#1A0F09", border: "#3D2816", text: "#FDE8D0", textMuted: "#D4A574", textDim: "#9A6E42", success: "#4ADE80", danger: "#EF4444", buyAccent: "#FBBF24" },
+  forest: { name: "Forest", accent: "#4ADE80", accentDark: "#16A34A", bg1: "#050C07", bg2: "#0C1A10", bg3: "#162818", surface: "#0C1A10", border: "#1E3A22", text: "#D9F2E0", textMuted: "#86CEAA", textDim: "#4E8B6A", success: "#A3E635", danger: "#FB923C", buyAccent: "#22D3EE" },
+  royal: { name: "Royal Purple", accent: "#A78BFA", accentDark: "#7C3AED", bg1: "#08061A", bg2: "#110E2A", bg3: "#1C1840", surface: "#110E2A", border: "#2E2855", text: "#E8E0F5", textMuted: "#B8A5D4", textDim: "#7B6BA0", success: "#34D399", danger: "#FB7185", buyAccent: "#F472B6" },
+  noir: { name: "Noir", accent: "#E5E5E5", accentDark: "#A3A3A3", bg1: "#0A0A0A", bg2: "#141414", bg3: "#1E1E1E", surface: "#141414", border: "#2E2E2E", text: "#F5F5F5", textMuted: "#D4D4D4", textDim: "#737373", success: "#4ADE80", danger: "#F87171", buyAccent: "#60A5FA" },
 };
 
 function themeToCSS(t) {
@@ -1133,6 +1282,9 @@ function WhiskeyGame() {
   const [codex, setCodex] = useState({}); // { brandName: { typeName+mods: { bottles: [{year,proof,age,mashbill}], minYear, maxYear, ... } } }
   const [codexExpandedBrand, setCodexExpandedBrand] = useState(null);
   const [codexExpandedVariant, setCodexExpandedVariant] = useState(null);
+  const [codexSearch, setCodexSearch] = useState("");
+  const [codexSort, setCodexSort] = useState("alpha"); // alpha, region, type
+  const [codexDetailBrand, setCodexDetailBrand] = useState(null); // brand name for detail modal
 
   const engineRef = useRef(null);
   const audioRef = useRef(null);
@@ -1161,7 +1313,41 @@ function WhiskeyGame() {
   }, [saves, initEngine, audio]);
 
   const handleDeleteSlot = useCallback((i) => { setSaves(p => { const n = [...p]; n[i] = null; return n; }); audio.playSfx("buttonClick"); }, [audio]);
-  const handleNameSubmit = useCallback((name) => { setStoreName(name); setActiveTab("shop"); setScreen("game"); audio.playSfx("buttonClick"); }, [audio]);
+  const handleNameSubmit = useCallback((name) => {
+    setStoreName(name);
+    // Seed codex with known brands and their current-year offerings
+    if (engineRef.current) {
+      const engine = engineRef.current;
+      const seedCodex = {};
+      for (const brandName of engine.brandNames) {
+        const brand = engine.brands[brandName];
+        seedCodex[brandName] = { __brandKnown: true, __region: brand.region };
+        // Generate a current-year base bottle for each compatible type
+        const compatibleTypes = Object.keys(WHISKEY_TYPES).filter(t => WHISKEY_TYPES[t].regionTags.includes(brand.region));
+        for (const typeName of compatibleTypes) {
+          const rng = seededRandom(hashString(brandName + typeName + engine.gameSeed + "catalog"));
+          engine._getOrCreateBrandType(brandName, typeName);
+          const typeDef = WHISKEY_TYPES[typeName];
+          const mashbill = { ...brand.types[typeName].mashbill };
+          // Current year release = young, standard proof, no modifiers
+          const age = typeDef.age.min + Math.floor(rng() * 3);
+          const proof = typeDef.proof.min + Math.floor(rng() * 20);
+          const variantKey = typeName;
+          seedCodex[brandName][variantKey] = {
+            brandName, typeName, modifiers: [], variantKey,
+            displayName: `${brandName} ${typeName}`,
+            minYear: 2026, maxYear: 2026,
+            lastProof: proof, lastAge: age, lastMashbill: mashbill, region: brand.region,
+            encounters: 0, // 0 = catalog knowledge, not personally encountered
+            bottleShapeIdx: brand.bottleShapeIdx, bottleColor: brand.bottleColor,
+            capColor: brand.capColor, labelColor: brand.labelColor, labelAccent: brand.labelAccent,
+          };
+        }
+      }
+      setCodex(seedCodex);
+    }
+    setActiveTab("shop"); setScreen("game"); audio.playSfx("buttonClick");
+  }, [audio]);
 
   useEffect(() => {
     if (screen === "game" && activeSlot !== null && engineRef.current) {
@@ -1214,25 +1400,25 @@ function WhiskeyGame() {
   // Each option has: id, label (shown on button), category, variants (player lines),
   // requiresSkill/minLevel, dispositionEffects per trait tier, response pools per trait combo
   const CONVO_OPTIONS = [
-    { id: "greet_warm", label: "Friendly Greeting", category: "greeting",
+    { id: "greet_warm", label: "Warm greeting", category: "greeting",
       variants: ["Welcome! Great to have you in the shop.", "Hey there! Come on in, take a look around.", "Good to see a new face! Let me know if anything catches your eye."],
       dispositionEffects: { highSociability: 6, lowSociability: 1, highPatience: 2, lowPatience: 0, highConfidence: 1, lowConfidence: 3 },
       responses: {
-        highSociability: ['"Thanks! I love what you\'ve done with the place."', '"What a great atmosphere in here! I\'ve been meaning to stop by.",'],
-        lowSociability: ['"Thanks."', '"Mm, hello."', '"Yeah, hey."'],
-        highConfidence: ['"Appreciate it. I know what I\'m looking for."','"Thanks. I\'m really here just to see if there\'s any interesting {typeRef} bottles in the area."'],
-        lowConfidence: ['"Oh, thanks... I\'m just looking around, I think."','*customer just nods back silently*','"...do you guys have have any whiskey or bourbon here?"'],
+        highSociability: ['"Thanks! I love what you\'ve done with the place."', '"What a great atmosphere in here! I\'ve been meaning to stop by."'],
+        lowSociability: ['"Thanks."', '"Mm, hello."'],
+        highConfidence: ['"Appreciate it. I know what I\'m looking for."'],
+        lowConfidence: ['"Oh, thanks... I\'m just looking around, I think."'],
       }},
-    { id: "greet_professional", label: "Professional Greeting", category: "greeting",
-      variants: ["Good afternoon. How can I help you today?", "Welcome in. Anything I can assist with?", "Hello. Let me know if you have any questions."],
+    { id: "greet_professional", label: "Professional greeting", category: "greeting",
+      variants: ["Good afternoon. How can I help you today?", "Welcome to the shop. Anything I can assist with?", "Hello. Let me know if you have any questions."],
       dispositionEffects: { highSociability: -2, lowSociability: 4, highPatience: 3, lowPatience: 2, highConfidence: 3, lowConfidence: 1 },
       responses: {
         highSociability: ['"A bit formal, but sure! What\'s good in here?"', '"All business, huh? I can respect that."'],
-        lowSociability: ['*customer acknowledges you silently*', '"Just looking."'],
+        lowSociability: ['"Good. I appreciate that."', '"Thank you. I will."'],
         highConfidence: ['"I think I can find my way around. Thanks."'],
         lowConfidence: ['"Oh, um, sure. I\'ll just browse a bit."'],
       }},
-    { id: "ask_favorites", label: "Whiskey Preference Chat", category: "smalltalk",
+    { id: "ask_favorites", label: "Ask about favorites", category: "smalltalk",
       variants: ["So what's your go-to pour at the end of a long day?", "Got any favorites on your shelf at home?", "What kind of whiskey do you usually gravitate toward?"],
       dispositionEffects: { highSociability: 5, lowSociability: -2, highKnowledge: 4, lowKnowledge: -3, highPatience: 2, lowPatience: -4 },
       responses: {
@@ -1241,7 +1427,7 @@ function WhiskeyGame() {
         highSociability: ['"Oh, I love talking about this! Where do I even start..."', '"Great question! I could talk whiskey all day."'],
         lowSociability: ['"I\'d rather not get into it."', '"I keep my preferences to myself."'],
       }},
-    { id: "ask_experience", label: "Collection Small Talk", category: "smalltalk",
+    { id: "ask_experience", label: "Ask about collecting", category: "smalltalk",
       variants: ["Been collecting long?", "How'd you get into whiskey?", "You seem like you know your way around a bottle shop."],
       dispositionEffects: { highSociability: 4, lowSociability: -1, highConfidence: 3, lowConfidence: -4, highKnowledge: 2, lowKnowledge: -5 },
       responses: {
@@ -1249,24 +1435,24 @@ function WhiskeyGame() {
         highKnowledge_lowConfidence: ['"I\'ve picked up a few things over the years, I suppose."'],
         lowKnowledge_highConfidence: ['"I know what I like. That\'s all that matters, right?"'],
         lowKnowledge_lowConfidence: ['"Not really... I\'m pretty new to all this, to be honest."', '"I don\'t know much. That\'s kind of why I\'m here."'],
-        lowPatience: ['"Sorry, I\'m not here for to chat."', '"Can we just get to business?"'],
+        lowPatience: ['"Look, I\'m not here for a chat."', '"Can we just get to business?"'],
       }},
-    { id: "industry_talk", label: "Insider Talk", category: "expert",
+    { id: "industry_talk", label: "Talk industry trends", category: "expert",
       requiresSkill: "industryKnowledge", minLevel: 1,
-      variants: ["Have you been hunting down any Single Barrels this year?", "Sure seems to be a lot of cool barrel finishing happening these days.", "Seems like this year craft distilleries are really taking off."],
+      variants: ["Have you been following the single barrel releases this season?", "The barrel-aged market has been wild lately.", "Some interesting expressions coming out of the smaller distilleries."],
       skillVariants: {
-        2: ["I've been tracking the {brandRef} releases — their proof points have been climbing.", "The secondary market on barrel proof {typeRef} has been heating up.", "Have you seen any of those hard to find bottles from {brandRef}? They\'ve really been going up in price."],
-        4: ["I've noticed batches from {brandRef} seem to be a little different lately. Seems like they might've even switched up something in their mashbill.", "The {typeRef} category is seeing some serious premiums on anything 10 years or older lately."],
+        2: ["I've been tracking the {brandRef} releases — their proof points have been climbing.", "The secondary market on barrel proof {typeRef} has been heating up."],
+        4: ["I've noticed {brandRef} shifted their mashbill slightly in recent batches. The rye content is up.", "The {typeRef} category is seeing some serious premiums on anything with an age statement over 10."],
       },
       dispositionEffects: { highKnowledge: 8, lowKnowledge: -6, highConfidence: 2, lowConfidence: -3, highSociability: 3, lowSociability: 0 },
       responses: {
         highKnowledge: ['"Absolutely. The market\'s been shifting. Good to talk to someone who pays attention."', '"You clearly know your stuff. I respect that."'],
-        lowKnowledge: ['"I... yeah, I\'ve heard some things."', '"Honestly, most of that goes over my head."', '"Sure, sure..."', '"I mostly keep up with every video Broozal puts up on Youtube. He is just awesome."'],
+        lowKnowledge: ['"I... yeah, I\'ve heard some things."', '"Honestly, most of that goes over my head."', '"Sure, sure..."'],
         lowConfidence_lowKnowledge: ['"Oh... I don\'t really follow all that."', '"That\'s a bit beyond me, I think."'],
       }},
     { id: "read_customer", label: "Size them up", category: "intuition",
       requiresSkill: "peopleReader", minLevel: 1,
-      variants: ["So how's it going today?", "I get all sorts in here. What's your story?", "You look like someone with a purpose today."],
+      variants: ["So, what brings you in today specifically?", "I get all sorts in here. What's your story?", "You look like someone with a purpose today."],
       dispositionEffects: { highSociability: 2, lowSociability: -1, highConfidence: 3, lowConfidence: -2 },
       responses: {
         highSociability: ['"Oh, I just love checking out new shops!"'],
@@ -1280,7 +1466,7 @@ function WhiskeyGame() {
   ];
 
   const INQUIRE_BUSINESS = {
-    id: "inquire_business", label: "Talk business",
+    id: "inquire_business", label: "Let's talk business",
     variants: ["So, what can I do for you today?", "Ready to do some business?", "What brings you to the counter?"],
     dispositionEffects: { highSociability: -3, lowSociability: 3, highPatience: 0, lowPatience: 4 },
     responses: {
@@ -1366,7 +1552,7 @@ function WhiskeyGame() {
           line = line.replace(/\{brandRef\}/g, brandName);
         }
         if (line.includes("{typeRef}")) {
-          const types = ["Bourbon", "Rye"];
+          const types = Object.keys(WHISKEY_TYPES);
           line = line.replace(/\{typeRef\}/g, types[Math.floor(Math.random() * types.length)]);
         }
         return line;
@@ -1411,7 +1597,7 @@ function WhiskeyGame() {
       playerLine = playerLine.replace(/\{brandRef\}/g, engine.brandNames[Math.floor(Math.random() * engine.brandNames.length)]);
     }
     if (playerLine.includes("{typeRef}")) {
-      playerLine = playerLine.replace(/\{typeRef\}/g, ["Bourbon", "Rye"][Math.floor(Math.random() * 2)]);
+      playerLine = playerLine.replace(/\{typeRef\}/g, Object.keys(WHISKEY_TYPES)[Math.floor(Math.random() * Object.keys(WHISKEY_TYPES).length)]);
     }
 
     // Calculate disposition shift
@@ -1419,7 +1605,14 @@ function WhiskeyGame() {
     const newDisposition = Math.max(0, Math.min(100, c.disposition + shift));
 
     // Pick customer response
-    const response = pickResponse(option.responses, c);
+    let response = pickResponse(option.responses, c);
+    // Replace brand/type refs in customer response
+    if (engine && response.includes("{brandRef}")) {
+      response = response.replace(/\{brandRef\}/g, engine.brandNames[Math.floor(Math.random() * engine.brandNames.length)]);
+    }
+    if (response.includes("{typeRef}")) {
+      response = response.replace(/\{typeRef\}/g, Object.keys(WHISKEY_TYPES)[Math.floor(Math.random() * Object.keys(WHISKEY_TYPES).length)]);
+    }
 
     // Check if impatient customer forces business
     const newTurns = convoTurns + 1;
@@ -1473,7 +1666,13 @@ function WhiskeyGame() {
     const shift = calcDispositionShift(INQUIRE_BUSINESS, c);
     const newDisposition = Math.max(0, Math.min(100, c.disposition + shift));
     const respPool = INQUIRE_BUSINESS.responses[c.type] || {};
-    const response = pickResponse(respPool, c);
+    let response = pickResponse(respPool, c);
+    if (engine && response.includes("{brandRef}")) {
+      response = response.replace(/\{brandRef\}/g, engine.brandNames[Math.floor(Math.random() * engine.brandNames.length)]);
+    }
+    if (response.includes("{typeRef}")) {
+      response = response.replace(/\{typeRef\}/g, Object.keys(WHISKEY_TYPES)[Math.floor(Math.random() * Object.keys(WHISKEY_TYPES).length)]);
+    }
     // Apply disposition to deal parameters
     // Higher disposition = seller asks less, buyer offers more
     const dispMod = 0.85 + (newDisposition / 100) * 0.3; // 0.85 at 0, 1.15 at 100
@@ -1502,45 +1701,53 @@ function WhiskeyGame() {
   const TACTICS = {
     compliment: {
       id: "compliment", label: "Compliment",
-      sellerText: ["That's a really nice bottle you've got there.", "Don't see many of those in this area.", "Just love pretty much everything this distillery puts out."],
-      buyerText: ["Well, you clearly have excellent taste.", "Ah, you found my last one of those. Good eye.", "A fellow connoisseur with an eye for quality, I see."],
+      tacticType: "rapport", // shifts acceptance chance, not price
+      sellerText: "That's a really nice bottle you've got there.",
+      buyerText: "You clearly have excellent taste.",
       effects: {
         desperate: "good", casual: "great", shrewd: "neutral", collector: "good", impatient: "neutral", friendly: "great",
       },
       responses: {
-        great: { seller: ['"Oh, you think so? Maybe I should hold onto it... nah, just kidding. Let\'s make a deal."', '"Aw, thanks! That means a lot coming from someone in the business."'], buyer: ['"Oh, thanks! I\'ve been looking for this a while now."', '"That\'s kind of you to say! These are hard to find, so I know they go for more."'] },
+        great: { seller: ['"Oh, you think so? Maybe I should hold onto it... nah, just kidding. Let\'s make a deal."', '"Aw, thanks! That means a lot coming from someone in the business."'], buyer: ['"You really think so? Well then, I trust your pricing."', '"That\'s kind of you to say! I\'m happy to pay fairly for quality."'] },
         good: { seller: ['"Thanks, I appreciate that."', '"Yeah, it\'s a decent one, isn\'t it?"'], buyer: ['"Thanks! I do try to find the good stuff."', '"I appreciate that."'] },
         neutral: { seller: ['"Sure. So what\'s your offer?"', '"Thanks. Anyway, about the price..."'], buyer: ['"Mhm. So what are you asking?"', '"Flattery aside, what\'s the number?"'] },
-        bad: { seller: ['"I don\'t need compliments, I need a fair price."', '"Save the charm. What\'ll you pay?"'], buyer: ['"I know what I like. What are you asking for it?"'] },
+        bad: { seller: ['"I don\'t need compliments, I need a fair price."', '"Save the charm. What\'ll you pay?"'], buyer: ['"I know what I like. Just name your price."'] },
       },
       // Effect on negotiation: modifies askingPrice (seller) or maxPay (buyer)
       multipliers: { great: 0.85, good: 0.92, neutral: 1.0, bad: 1.05 },
     },
-    flaw: {
-      id: "flaw", label: "Nitpick",
+    nitpick: {
+      id: "nitpick", label: "Nitpick",
+      tacticType: "priceShift",
       sellerText: null, // dynamic based on bottle
-      buyerText: null,
+      buyerText: null, // dynamic
       effects: {
         desperate: "great", casual: "good", shrewd: "bad", collector: "terrible", impatient: "neutral", friendly: "good",
       },
       responses: {
-        great: { seller: ['"Oh... I didn\'t notice that. Maybe it\'s not worth as much as I thought."', '"Really? Hmm, I guess I should lower my expectations."'], buyer: ['"Oh, I guess I must not be paying enough attention to the market."'] },
-        good: { seller: ['"Fair point, I suppose."', '"Yeah, you might be right about that."'], buyer: ['"Well, maybe you have a point."'] },
-        neutral: { seller: ['"I mean, it is what it is."', '"That doesn\'t change much for me."'], buyer: ['"Noted, but I still think that\'s what the price SHOULD be."'] },
-        bad: { seller: ['"I\'m well aware of what this bottle is. Don\'t try to lowball me."', '"Nice try, but I know the market."'], buyer: ['"Are you trying to talk me out of buying? Because it\'s working."'] },
-        terrible: { seller: ['"That\'s insulting. I think we\'re done here."'], buyer: ['"You know what, I don\'t think I want to do business with you."'] },
+        great: { seller: ['"Oh... I didn\'t notice that. Maybe it\'s not worth as much as I thought."', '"Really? Hmm, I guess I should lower my expectations."', '"Fair enough, I\'ll take that into account."'],
+                 buyer: ['"Hmm, when you put it that way..."', '"I suppose that\'s a fair point. Maybe I was a bit high."'] },
+        good: { seller: ['"Fair point, I suppose."', '"Yeah, you might be right about that."'],
+                buyer: ['"Okay, I hear you."', '"That\'s... yeah, alright."'] },
+        neutral: { seller: ['"I mean, it is what it is."', '"That doesn\'t change much for me."'],
+                  buyer: ['"Noted, but I still want it."', '"I don\'t think that changes anything for me."'] },
+        bad: { seller: ['"I\'m well aware of what this bottle is. Don\'t try to lowball me."', '"Nice try, but I know the market."'],
+               buyer: ['"Are you trying to talk me out of buying this? Not a great sales tactic."', '"I know what I\'m looking at. Don\'t patronize me."'] },
+        terrible: { seller: ['"That\'s insulting. I think we\'re done here."'],
+                   buyer: ['"You know what, I don\'t think I want to do business with you."'] },
       },
-      multipliers: { great: 0.78, good: 0.88, neutral: 1.0, bad: 1.08, terrible: null }, // null = walk away
+      multipliers: { great: 0.78, good: 0.88, neutral: 1.0, bad: 1.08, terrible: null },
     },
     compete: {
-      id: "compete", label: "Mention Competition",
+      id: "compete", label: "Mention competition",
+      tacticType: "priceShift",
       sellerText: "I've seen bottles like this go for less at other shops.",
       buyerText: "I've had some interest from another buyer on this one.",
       effects: {
         desperate: "great", casual: "good", shrewd: "bad", collector: "neutral", impatient: "good", friendly: "neutral",
       },
       responses: {
-        great: { seller: ['"Oh, really? Well, I just want to get this done. How about a better price?"', '"I don\'t have time to shop around. I\'ll come down."'], buyer: ['"Another buyer? I better not lose this. I\'ll beat their offer."', '"Don\'t sell it out from under me!"'] },
+        great: { seller: ['"Oh, really? Well, I just want to get this done. How about a better price?"', '"I don\'t have time to shop around. I\'ll come down."'], buyer: ['"Another buyer? I better not lose this. I\'ll pay more."', '"Don\'t sell it out from under me!"'] },
         good: { seller: ['"Fair enough, I guess the market is what it is."'], buyer: ['"Alright, maybe I can stretch my budget a bit."'] },
         neutral: { seller: ['"I\'ll keep that in mind."', '"Maybe so, but I know what I want for this."'], buyer: ['"Good for them. I know what I\'m willing to pay."'] },
         bad: { seller: ['"Then go buy it there. I know my price."', '"I doubt that. This is worth what I\'m asking."'], buyer: ['"Don\'t try to play games with me."'] },
@@ -1549,6 +1756,7 @@ function WhiskeyGame() {
     },
     knowledge: {
       id: "knowledge", label: "Share expertise",
+      tacticType: "priceShift",
       sellerText: null, // dynamic
       buyerText: null,
       effects: {
@@ -1564,10 +1772,19 @@ function WhiskeyGame() {
     },
     askYear: {
       id: "askYear", label: "Ask about release year",
-      sellerText: "Do you happen to know what year this was released?",
-      buyerText: null, // only for sellers
-      sellerOnly: true, // only shows when buying from sellers
-      requiresUnknownYear: true, // only shows when bottle year is unknown
+      tacticType: "priceShift",
+      sellerText: null, // dynamic based on skill level
+      buyerText: null,
+      sellerOnly: true,
+      requiresUnknownYear: true,
+      requiresSkill: "industryKnowledge", minLevel: 1,
+      skillVariants: {
+        1: ["Do you know what year this was released?", "Any idea how old this one is?", "Is there a year on this anywhere?"],
+        2: ["I can't find a release year on this. Do you know offhand?", "Without a year, it's hard to place this one. Any idea?"],
+        3: ["This looks like it could be one of {brandRef}'s older releases. Do you know the year?", "I'm curious — do you know if this is a recent release or something older?"],
+        4: ["Is this one of {brandRef}'s more recent releases? Their earlier stuff is a lot more desirable.", "I've seen {brandRef} bottles without years before — usually means it's newer production. That right?"],
+        5: ["Without a year, I'd guess this is from their standard production run. Their dated releases tend to command a premium.", "The lack of a release year suggests this is more recent. {brandRef}'s vintage releases are what collectors chase."],
+      },
       effects: {
         desperate: "great", casual: "great", shrewd: "bad", collector: "neutral", impatient: "good", friendly: "good",
       },
@@ -1578,20 +1795,32 @@ function WhiskeyGame() {
         bad: { seller: ['"I know exactly what this is worth, year or no year. Actually, let me reconsider my price."', '"Trying to use that against me? I\'ve done my homework."'] },
       },
       multipliers: { great: 0.72, good: 0.88, neutral: 1.0, bad: 1.10 },
-      requiresSkill: "industryKnowledge", minLevel: 1,
     },
   };
 
-  const getFlawText = useCallback((bottle, forBuyer) => {
-    if (forBuyer) return "That would've been a fair price for this a few years ago.";
+  const getNitpickText = useCallback((bottle, forBuyer) => {
+    if (forBuyer) {
+      // Player is selling — nitpick the buyer's offer/expectations
+      const lines = [
+        "This would've been a fair price about five years ago.",
+        "I think you're undervaluing the craftsmanship here.",
+        "The market on these has moved quite a bit from where you're at.",
+        "I've had offers well above that for similar bottles.",
+        "For a bottle with this kind of character, I'd expect a bit more.",
+      ];
+      if (bottle?.modifiers?.length > 0) lines.push(`You're not accounting for the ${bottle.modifiers[0]} — that adds real value.`);
+      if (bottle?.ageStated) lines.push(`A ${bottle.age}-year age statement alone puts this in a different category.`);
+      return lines[Math.floor(Math.random() * lines.length)];
+    }
+    // Player is buying — nitpick just one thing about the bottle
     const flaws = [];
-    if (!bottle.yearKnown) flaws.push("no year on the label");
-    if (bottle.ageDisplay === "Unstated") flaws.push("no age statement");
-    if (bottle.proof <= 90) flaws.push("pretty standard proof");
-    if (bottle.ageDisplay <=4) flaws.push("a pretty young whiskey here");
-    if (bottle.modifiers.length === 0) flaws.push("no special finishes or releases");
-    if (flaws.length === 0) flaws.push("a few shelf marks on the bottle");
-    return `I notice there's ${flaws[0]}${flaws.length > 1 ? ` and ${flaws[1]}` : ""}.`;
+    if (!bottle.yearKnown) flaws.push("There's no release year on the label — that's always a question mark.");
+    if (bottle.ageDisplay === "Unstated") flaws.push("No age statement on this one. Makes it harder to value.");
+    if (bottle.proof <= 90) flaws.push("The proof is pretty standard. Nothing that really jumps out.");
+    if (bottle.proof > 130) flaws.push("That proof is pretty hot. Narrows the buyer pool for me.");
+    if (bottle.modifiers.length === 0) flaws.push("No barrel finish, no special release — it's a straightforward pour.");
+    if (flaws.length === 0) flaws.push("I'm seeing some wear on the label. Doesn't help the presentation.");
+    return flaws[Math.floor(Math.random() * flaws.length)];
   }, []);
 
   const getKnowledgeText = useCallback((bottle, forBuyer) => {
@@ -1614,6 +1843,8 @@ function WhiskeyGame() {
     setCodex(prev => {
       const next = { ...prev };
       if (!next[brand]) next[brand] = {};
+      // Preserve brand-level metadata
+      if (!next[brand].__brandKnown) next[brand].__brandKnown = true;
       const existing = next[brand][variantKey];
       if (existing) {
         if (bottle.yearKnown) {
@@ -1699,7 +1930,7 @@ function WhiskeyGame() {
         if (t.sociability > 40) return "good";
         if (t.confidence > 70 && t.knowledge > 60) return "neutral";
         return "neutral";
-      } else if (tacticId === "flaw") {
+      } else if (tacticId === "nitpick") {
         if (t.knowledge < 30 && t.confidence < 40) return "great";
         if (t.knowledge < 45) return "good";
         if (t.knowledge > 70 && t.confidence > 65) return "terrible";
@@ -1728,8 +1959,16 @@ function WhiskeyGame() {
     const bottle = isSeller ? c.bottle : inventory.find(b => b.id === selectedSellBottle);
 
     let playerText;
-    if (tacticId === "flaw") playerText = getFlawText(bottle, !isSeller);
+    if (tacticId === "nitpick") playerText = getNitpickText(bottle, !isSeller);
     else if (tacticId === "knowledge") playerText = getKnowledgeText(bottle, !isSeller);
+    else if (tacticId === "askYear" && tactic.skillVariants) {
+      const ikLevel = playerSkills.industryKnowledge || 1;
+      const bestLevel = Object.keys(tactic.skillVariants).map(Number).filter(l => ikLevel >= l).sort((a,b) => b-a)[0] || 1;
+      const pool = tactic.skillVariants[bestLevel];
+      let line = pool[Math.floor(Math.random() * pool.length)];
+      if (engine && line.includes("{brandRef}")) line = line.replace(/\{brandRef\}/g, bottle?.brandName || engine.brandNames[Math.floor(Math.random() * engine.brandNames.length)]);
+      playerText = line;
+    }
     else playerText = isSeller ? tactic.sellerText : tactic.buyerText;
 
     const responsePool = tactic.responses[effect]?.[isSeller ? "seller" : "buyer"] || tactic.responses[effect]?.seller || ['"..."'];
@@ -1740,38 +1979,51 @@ function WhiskeyGame() {
 
     if (mult === null) {
       setTacticResult({ text: response, effect: "terrible" });
+      setShowTacticsMenu(false);
       if (negotiating) {
         setNegResult("walked");
         setNegHistory(prev => [...prev, { who: "player", amount: null, text: playerText }, { who: "customer", amount: null, text: response }]);
       } else {
         setTimeout(() => { advanceToNextCustomer(); }, 1500);
       }
+      setTimeout(() => setTacticResult(null), 2500);
       return;
     }
 
     setTacticResult({ text: response, effect });
 
-    if (isSeller) {
-      const newAsk = Math.max(Math.round(c.askingPrice * mult), c.minAccept);
-      const newMin = Math.round(c.minAccept * (mult < 1 ? mult * 0.9 + 0.1 : mult));
-      setCurrentCustomer(prev => ({ ...prev, askingPrice: newAsk, minAccept: Math.min(newMin, newAsk) }));
+    if (tactic.tacticType === "rapport") {
+      // Rapport tactics: shift acceptance likelihood, don't change prices
+      // acceptBonus is a cumulative modifier on accept chance in submitOffer
+      const rapportShift = { great: 0.25, good: 0.12, neutral: 0, bad: -0.12, terrible: -0.25 }[effect] || 0;
+      setCurrentCustomer(prev => ({ ...prev, acceptBonus: (prev.acceptBonus || 0) + rapportShift }));
       if (negotiating) {
-        setCustomerOffer(newAsk);
-        setNegHistory(prev => [...prev, { who: "player", amount: null, text: playerText }, { who: "customer", amount: newAsk, text: `${response} $${newAsk.toLocaleString()}.` }]);
+        setNegHistory(prev => [...prev, { who: "player", amount: null, text: playerText }, { who: "customer", amount: null, text: response }]);
       }
     } else {
-      const newMax = Math.round(c.maxPay * (mult < 1 ? 1 + (1 - mult) : mult));
-      const newOffer = Math.round(c.openingOffer * (mult < 1 ? 1 + (1 - mult) * 0.5 : mult));
-      setCurrentCustomer(prev => ({ ...prev, maxPay: newMax, openingOffer: Math.min(newOffer, newMax) }));
-      if (negotiating) {
-        setCustomerOffer(newOffer);
-        setNegHistory(prev => [...prev, { who: "player", amount: null, text: playerText }, { who: "customer", amount: newOffer, text: `${response} $${newOffer.toLocaleString()}.` }]);
+      // Price-shift tactics: directly change offer values
+      if (isSeller) {
+        const newAsk = Math.max(Math.round(c.askingPrice * mult), c.minAccept);
+        const newMin = Math.round(c.minAccept * (mult < 1 ? mult * 0.9 + 0.1 : mult));
+        setCurrentCustomer(prev => ({ ...prev, askingPrice: newAsk, minAccept: Math.min(newMin, newAsk) }));
+        if (negotiating) {
+          setCustomerOffer(newAsk);
+          setNegHistory(prev => [...prev, { who: "player", amount: null, text: playerText }, { who: "customer", amount: newAsk, text: response }]);
+        }
+      } else {
+        const newMax = Math.round(c.maxPay * (mult < 1 ? 1 + (1 - mult) : mult));
+        const newOffer = Math.round(c.openingOffer * (mult < 1 ? 1 + (1 - mult) * 0.5 : mult));
+        setCurrentCustomer(prev => ({ ...prev, maxPay: newMax, openingOffer: Math.min(newOffer, newMax) }));
+        if (negotiating) {
+          setCustomerOffer(newOffer);
+          setNegHistory(prev => [...prev, { who: "player", amount: null, text: playerText }, { who: "customer", amount: null, text: response }]);
+        }
       }
     }
 
     setShowTacticsMenu(false);
     setTimeout(() => setTacticResult(null), 2500);
-  }, [currentCustomer, negotiating, inventory, selectedSellBottle, playerSkills, getFlawText, getKnowledgeText, advanceToNextCustomer]);
+  }, [currentCustomer, negotiating, inventory, selectedSellBottle, playerSkills, getNitpickText, getKnowledgeText, advanceToNextCustomer]);
 
   const FIRST_NAMES = ["James","Mary","Robert","Linda","Michael","Sarah","William","Karen","David","Lisa","Thomas","Nancy","John","Betty","Daniel","Sandra","Paul","Ruth","Mark","Helen","George","Laura","Frank","Anna","Ed","Carol","Tony","Marie","Victor","Grace"];
   const LAST_NAMES = ["Smith","Johnson","Brown","Davis","Wilson","Moore","Taylor","Anderson","Thomas","Harris","Martin","Garcia","Lee","Clark","Lewis","Hall","Young","King","Wright","Hill","Scott","Green","Baker","Adams","Reed","Cook","Morgan","Bell","Ross","Wood"];
@@ -1895,7 +2147,7 @@ function WhiskeyGame() {
       } else if (playerOffer >= c.minAccept) {
         // In acceptable range — chance of accept scales with how close to asking
         const ratio = (playerOffer - c.minAccept) / (c.askingPrice - c.minAccept);
-        const acceptChance = 0.2 + ratio * 0.7;
+        const acceptChance = Math.max(0.05, Math.min(0.95, 0.2 + ratio * 0.7 + (c.acceptBonus || 0)));
         if (Math.random() < acceptChance || round >= c.maxRounds) {
           setNegResult("accepted");
           setNegHistory(prev => [...prev, { who: "player", amount: playerOffer, text: `You offer $${playerOffer.toLocaleString()}` }, { who: "customer", amount: playerOffer, text: `"...Alright, you've got a deal."` }]);
@@ -1929,7 +2181,7 @@ function WhiskeyGame() {
         setNegHistory(prev => [...prev, { who: "player", amount: playerOffer, text: `You ask $${playerOffer.toLocaleString()}` }, { who: "customer", amount: playerOffer, text: `"Sold! That's a great price."` }]);
       } else if (playerOffer <= c.maxPay) {
         const ratio = (c.maxPay - playerOffer) / (c.maxPay - c.openingOffer);
-        const acceptChance = 0.15 + ratio * 0.7;
+        const acceptChance = Math.max(0.05, Math.min(0.95, 0.15 + ratio * 0.7 + (c.acceptBonus || 0)));
         if (Math.random() < acceptChance || round >= c.maxRounds) {
           setNegResult("accepted");
           setNegHistory(prev => [...prev, { who: "player", amount: playerOffer, text: `You ask $${playerOffer.toLocaleString()}` }, { who: "customer", amount: playerOffer, text: `"...Fine, I'll take it."` }]);
@@ -1938,7 +2190,8 @@ function WhiskeyGame() {
           setCustomerOffer(newCounter);
           setPlayerOffer(Math.round((playerOffer + newCounter) / 2));
           setNegResult("countered");
-          setNegHistory(prev => [...prev, { who: "player", amount: playerOffer, text: `You ask $${playerOffer.toLocaleString()}` }, { who: "customer", amount: newCounter, text: `"${c.counterLines[Math.floor(Math.random() * c.counterLines.length)]} $${newCounter.toLocaleString()}?"` }]);
+          const counterLine = c.counterLines[Math.floor(Math.random() * c.counterLines.length)];
+          setNegHistory(prev => [...prev, { who: "player", amount: playerOffer, text: `You ask $${playerOffer.toLocaleString()}` }, { who: "customer", amount: newCounter, text: `"${counterLine} $${newCounter.toLocaleString()}."` }]);
         }
       } else {
         if (round >= c.maxRounds) {
@@ -1949,7 +2202,8 @@ function WhiskeyGame() {
           setCustomerOffer(newCounter);
           setPlayerOffer(Math.round((playerOffer + newCounter) / 2));
           setNegResult("countered");
-          setNegHistory(prev => [...prev, { who: "player", amount: playerOffer, text: `You ask $${playerOffer.toLocaleString()}` }, { who: "customer", amount: newCounter, text: `"${c.counterLines[Math.floor(Math.random() * c.counterLines.length)]} $${newCounter.toLocaleString()}?"` }]);
+          const counterLine = c.counterLines[Math.floor(Math.random() * c.counterLines.length)];
+          setNegHistory(prev => [...prev, { who: "player", amount: playerOffer, text: `You ask $${playerOffer.toLocaleString()}` }, { who: "customer", amount: newCounter, text: `"${counterLine} $${newCounter.toLocaleString()}."` }]);
         }
       }
     }
@@ -2885,103 +3139,183 @@ function WhiskeyGame() {
             )}
             {activeTab === "codex" && (
               <div>
-                <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "var(--accent)", fontSize: "22px", margin: "0 0 8px 0", textAlign: "center" }}>Codex</h2>
-                <p style={{ color: "var(--text-dim)", fontSize: "12px", fontFamily: "monospace", textAlign: "center", marginBottom: "20px" }}>
-                  Your personal reference of every bottle you've encountered. Knowledge is power.
-                </p>
-                {Object.keys(codex).length === 0 ? (
-                  <div style={{ textAlign: "center", padding: "60px 20px", color: "#5a4a38", fontSize: "14px" }}>
-                    No bottles encountered yet. Start trading to fill your codex.
+                <h2 style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "var(--accent)", fontSize: "22px", margin: "0 0 12px 0", textAlign: "center" }}>Codex</h2>
+
+                {/* Search + Sort bar */}
+                <div style={{ display: "flex", gap: "8px", marginBottom: "16px", flexWrap: "wrap" }}>
+                  <input type="text" placeholder="Search brands..." value={codexSearch} onChange={e => setCodexSearch(e.target.value)}
+                    style={{ flex: "1 1 160px", padding: "8px 12px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "8px", color: "var(--text)", fontSize: "13px", fontFamily: "'Inter', sans-serif", outline: "none" }} />
+                  <div style={{ display: "flex", gap: "4px" }}>
+                    {[["alpha","A–Z"], ["region","Region"], ["type","Type"]].map(([key, label]) => (
+                      <button key={key} onClick={() => setCodexSort(key)}
+                        style={{ padding: "6px 12px", borderRadius: "8px", fontSize: "11px", fontFamily: "'Inter', sans-serif", fontWeight: "500", cursor: "pointer",
+                          background: codexSort === key ? "var(--accent)" : "var(--surface)",
+                          color: codexSort === key ? "var(--bg1)" : "var(--text-dim)",
+                          border: codexSort === key ? "1px solid var(--accent)" : "1px solid var(--border)" }}>
+                        {label}
+                      </button>
+                    ))}
                   </div>
-                ) : (() => {
-                  const [expandedBrand, setExpandedBrandLocal] = [codexExpandedBrand, setCodexExpandedBrand];
-                  const [expandedVariant, setExpandedVariantLocal] = [codexExpandedVariant, setCodexExpandedVariant];
-                  const brands = Object.keys(codex).sort();
+                </div>
+
+                {(() => {
+                  const allBrands = Object.keys(codex).filter(b => {
+                    if (codexSearch.trim()) return b.toLowerCase().includes(codexSearch.toLowerCase());
+                    return true;
+                  });
+
+                  // Sort
+                  const getRegion = (b) => codex[b]?.__region || "Unknown";
+                  const getTypes = (b) => Object.keys(codex[b]).filter(k => !k.startsWith("__")).map(k => codex[b][k].typeName).filter(Boolean);
+                  const getEncounterCount = (b) => Object.keys(codex[b]).filter(k => !k.startsWith("__")).reduce((s, k) => s + (codex[b][k].encounters || 0), 0);
+
+                  let sorted = [...allBrands];
+                  if (codexSort === "alpha") sorted.sort();
+                  else if (codexSort === "region") sorted.sort((a, b) => getRegion(a).localeCompare(getRegion(b)) || a.localeCompare(b));
+                  else if (codexSort === "type") sorted.sort((a, b) => {
+                    const ta = getTypes(a).join(","), tb = getTypes(b).join(",");
+                    return ta.localeCompare(tb) || a.localeCompare(b);
+                  });
+
+                  // Group by sort key for section headers
+                  let lastGroup = null;
+
+                  if (allBrands.length === 0) return (
+                    <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--text-dim)", fontSize: "13px" }}>
+                      {codexSearch ? "No brands match your search." : "No brands in codex yet."}
+                    </div>
+                  );
+
                   return (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                      {brands.map(brand => {
-                        const variants = codex[brand];
-                        const variantKeys = Object.keys(variants).sort();
-                        const isExpanded = expandedBrand === brand;
-                        return (
-                          <div key={brand}>
-                            <button onClick={() => setExpandedBrandLocal(isExpanded ? null : brand)}
-                              style={{ width: "100%", padding: "12px 16px", background: isExpanded ? "rgba(255,255,255,0.05)" : "var(--surface)", border: isExpanded ? "1px solid var(--accent)" : "1px solid var(--border)", borderRadius: isExpanded ? "8px 8px 0 0" : "8px", cursor: "pointer", textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                              <span style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "var(--text)", fontSize: "15px" }}>{brand}</span>
-                              <span style={{ fontSize: "11px", color: "var(--text-dim)", fontFamily: "monospace" }}>{variantKeys.length} variant{variantKeys.length !== 1 ? "s" : ""}</span>
-                            </button>
-                            {isExpanded && (
-                              <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid var(--border)", borderTop: "none", borderRadius: "0 0 8px 8px", padding: "8px" }}>
-                                {variantKeys.map(vk => {
-                                  const v = variants[vk];
-                                  const isVarExpanded = expandedVariant === `${brand}|${vk}`;
-                                  return (
-                                    <div key={vk} style={{ marginBottom: "4px" }}>
-                                      <button onClick={() => setExpandedVariantLocal(isVarExpanded ? null : `${brand}|${vk}`)}
-                                        style={{ width: "100%", padding: "8px 12px", background: isVarExpanded ? "rgba(255,255,255,0.04)" : "transparent", border: isVarExpanded ? "1px solid var(--accent)" : "1px solid rgba(255,255,255,0.05)", borderRadius: "6px", cursor: "pointer", textAlign: "left" }}>
-                                        <span style={{ fontSize: "13px", color: "var(--text-muted)", fontFamily: "monospace" }}>{v.variantKey}</span>
-                                        <span style={{ fontSize: "10px", color: "var(--text-dim)", marginLeft: "8px" }}>({v.encounters}x seen)</span>
-                                      </button>
-                                      {isVarExpanded && (
-                                        <div style={{ padding: "12px", background: "var(--bg1)", borderRadius: "0 0 6px 6px", margin: "0 4px", border: "1px solid #2a221840", borderTop: "none" }}>
-                                          <div style={{ display: "flex", gap: "16px", alignItems: "flex-start" }}>
-                                            <BottleSVG bottle={v} size={100} />
+                    <>
+                      {/* Brand card grid — compact 4-per-row */}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                        {sorted.map(brand => {
+                          const data = codex[brand];
+                          const variantKeys = Object.keys(data).filter(k => !k.startsWith("__"));
+                          const region = data.__region || "Unknown";
+                          const types = [...new Set(variantKeys.map(k => data[k].typeName).filter(Boolean))];
+                          const encountered = variantKeys.filter(k => data[k].encounters > 0).length;
+                          const hasEncountered = encountered > 0;
+
+                          // Section headers for region/type sort
+                          let sectionHeader = null;
+                          if (codexSort === "region") {
+                            if (region !== lastGroup) { lastGroup = region; sectionHeader = region; }
+                          } else if (codexSort === "type") {
+                            const typeKey = types.join(", ") || "Unknown";
+                            if (typeKey !== lastGroup) { lastGroup = typeKey; sectionHeader = typeKey; }
+                          }
+
+                          return (
+                            <React.Fragment key={brand}>
+                              {sectionHeader && (
+                                <div style={{ width: "100%", fontSize: "10px", fontFamily: "'Inter', sans-serif", fontWeight: "600", color: "var(--accent)", letterSpacing: "1px", padding: "10px 2px 2px", textTransform: "uppercase" }}>
+                                  {sectionHeader}
+                                </div>
+                              )}
+                              <button onClick={() => setCodexDetailBrand(brand)}
+                                style={{ width: "calc(25% - 5px)", minWidth: "70px", padding: "10px 6px", background: "var(--surface)", border: hasEncountered ? "1px solid var(--border)" : "1px dashed var(--border)", borderRadius: "8px", cursor: "pointer", opacity: hasEncountered ? 1 : 0.55, display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+                                <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "11px", color: "var(--text)", lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", width: "100%" }}>{brand}</div>
+                                <div style={{ display: "flex", gap: "3px", flexWrap: "wrap", justifyContent: "center" }}>
+                                  {types.map(t => (
+                                    <span key={t} style={{ fontSize: "8px", padding: "0px 4px", borderRadius: "4px", background: "rgba(255,255,255,0.06)", color: t === "Bourbon" ? "var(--accent)" : "var(--buy-accent)", fontFamily: "'Inter', sans-serif" }}>{t.slice(0,3)}</span>
+                                  ))}
+                                </div>
+                              </button>
+                            </React.Fragment>
+                          );
+                        })}
+                      </div>
+
+                      {/* Detail modal */}
+                      {codexDetailBrand && codex[codexDetailBrand] && (
+                        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: "16px" }}
+                          onClick={() => setCodexDetailBrand(null)}>
+                          <div style={{ background: `linear-gradient(145deg, var(--bg3), var(--bg2))`, borderRadius: "16px", padding: "20px", border: "1px solid var(--border)", width: "480px", maxWidth: "95vw", maxHeight: "85vh", overflowY: "auto", animation: "fadeIn 0.3s ease-out" }}
+                            onClick={e => e.stopPropagation()}>
+                            {(() => {
+                              const brand = codexDetailBrand;
+                              const data = codex[brand];
+                              const variantKeys = Object.keys(data).filter(k => !k.startsWith("__")).sort();
+                              const region = data.__region || "Unknown";
+                              return (
+                                <>
+                                  {/* Brand header */}
+                                  <div style={{ textAlign: "center", marginBottom: "16px" }}>
+                                    <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "var(--accent)", fontSize: "20px", margin: "0 0 4px 0" }}>{brand}</h3>
+                                    <span style={{ fontSize: "10px", padding: "2px 10px", borderRadius: "8px", background: "rgba(255,255,255,0.06)", color: "var(--text-dim)", fontFamily: "'Inter', sans-serif" }}>{region}</span>
+                                  </div>
+                                  <div style={{ height: "1px", background: "linear-gradient(90deg, transparent, var(--border), transparent)", marginBottom: "16px" }} />
+
+                                  {/* Variant cards */}
+                                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                                    {variantKeys.map(vk => {
+                                      const v = data[vk];
+                                      const isEncountered = v.encounters > 0;
+                                      return (
+                                        <div key={vk} style={{ background: "rgba(255,255,255,0.03)", borderRadius: "10px", padding: "12px", border: isEncountered ? "1px solid var(--border)" : "1px dashed var(--border)", opacity: isEncountered ? 1 : 0.6 }}>
+                                          <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
+                                            <BottleSVG bottle={v} size={80} />
                                             <div style={{ flex: 1 }}>
-                                              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "14px", color: "var(--text)", marginBottom: "8px" }}>{v.displayName}</div>
-                                              <div style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "monospace", display: "flex", flexDirection: "column", gap: "4px" }}>
-                                                <div><span style={{ color: "var(--text-dim)" }}>REGION</span> {v.region}</div>
-                                                <div><span style={{ color: "var(--text-dim)" }}>RELEASE YEARS</span> {v.minYear && v.maxYear ? (v.minYear === v.maxYear ? `?–${v.maxYear}` : `${v.minYear}–${v.maxYear}`) : "Unknown"}</div>
-                                                <div><span style={{ color: "var(--text-dim)" }}>PROOF</span> {v.lastProof}</div>
-                                                <div><span style={{ color: "var(--text-dim)" }}>AGE</span> {v.lastAge >= 3 && v.lastAge <= 6 ? "Unstated" : `${v.lastAge}yr`}</div>
-                                                <div style={{ marginTop: "4px" }}>
-                                                  <span style={{ color: "var(--text-dim)" }}>MASHBILL</span>
-                                                  <div style={{ display: "flex", gap: "8px", marginTop: "2px", flexWrap: "wrap" }}>
-                                                    {Object.entries(v.lastMashbill || {}).filter(([,val]) => val > 0).sort(([,a],[,b]) => b - a).map(([grain, pct]) => {
-                                                      const gc = { Corn: "var(--accent)", Rye: "#A0522D", Barley: "#DAA520", Wheat: "#DEB887" };
-                                                      return <span key={grain} style={{ color: gc[grain] || "#888" }}>{grain} {pct}%</span>;
+                                              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "14px", color: "var(--text)", marginBottom: "6px" }}>{v.displayName || v.variantKey}</div>
+                                              <div style={{ display: "flex", flexDirection: "column", gap: "3px", fontSize: "11px", fontFamily: "monospace" }}>
+                                                {v.modifiers && v.modifiers.length > 0 && (
+                                                  <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginBottom: "2px" }}>
+                                                    {v.modifiers.map(m => <span key={m} style={{ fontSize: "9px", padding: "1px 6px", borderRadius: "6px", background: "rgba(255,255,255,0.06)", color: "var(--accent)" }}>{m}</span>)}
+                                                  </div>
+                                                )}
+                                                <div><span style={{ color: "var(--text-dim)" }}>YEARS </span><span style={{ color: "var(--text-muted)" }}>{v.minYear && v.maxYear ? (v.minYear === v.maxYear ? v.maxYear : `${v.minYear}–${v.maxYear}`) : "Unknown"}</span></div>
+                                                <div><span style={{ color: "var(--text-dim)" }}>PROOF </span><span style={{ color: "var(--text-muted)" }}>{v.lastProof}pf</span></div>
+                                                <div><span style={{ color: "var(--text-dim)" }}>AGE </span><span style={{ color: "var(--text-muted)" }}>{v.lastAge >= 3 && v.lastAge <= 6 ? "Unstated" : `${v.lastAge}yr`}</span></div>
+                                                {isEncountered && <div><span style={{ color: "var(--text-dim)" }}>SEEN </span><span style={{ color: "var(--text-muted)" }}>{v.encounters}x</span></div>}
+                                              </div>
+                                              {/* Mashbill bar */}
+                                              {v.lastMashbill && (
+                                                <div style={{ marginTop: "6px" }}>
+                                                  <div style={{ display: "flex", borderRadius: "4px", overflow: "hidden", height: "6px" }}>
+                                                    {Object.entries(v.lastMashbill).filter(([,val]) => val > 0).sort(([,a],[,b]) => b - a).map(([grain, pct]) => {
+                                                      const gc = { Corn: "#D4AF37", Rye: "#A0522D", Barley: "#DAA520", "Malted Barley": "#C8A240", Wheat: "#DEB887", Oats: "#BDB76B", Rice: "#E8DCC8" };
+                                                      return <div key={grain} style={{ width: `${pct}%`, background: gc[grain] || "#888", height: "100%" }} />;
+                                                    })}
+                                                  </div>
+                                                  <div style={{ display: "flex", gap: "8px", marginTop: "2px" }}>
+                                                    {Object.entries(v.lastMashbill).filter(([,val]) => val > 0).sort(([,a],[,b]) => b - a).map(([grain, pct]) => {
+                                                      const gc = { Corn: "#D4AF37", Rye: "#A0522D", Barley: "#DAA520", "Malted Barley": "#C8A240", Wheat: "#DEB887", Oats: "#BDB76B", Rice: "#E8DCC8" };
+                                                      return <span key={grain} style={{ fontSize: "9px", color: gc[grain] || "#888", fontFamily: "monospace" }}>{grain} {pct}%</span>;
                                                     })}
                                                   </div>
                                                 </div>
-                                                {v.modifiers.length > 0 && (
-                                                  <div style={{ marginTop: "4px", display: "flex", gap: "4px", flexWrap: "wrap" }}>
-                                                    {v.modifiers.map((m, mi) => <span key={mi} style={tagStyle("#5B3A29")}>{m}</span>)}
-                                                  </div>
-                                                )}
-                                                {/* Price History */}
-                                                {v.priceHistory && Object.keys(v.priceHistory).length > 0 && (
-                                                  <div style={{ marginTop: "10px", borderTop: "1px solid #2a2218", paddingTop: "8px" }}>
-                                                    <div style={{ color: "var(--text-dim)", fontSize: "10px", letterSpacing: "1px", marginBottom: "6px" }}>DEAL HISTORY</div>
-                                                    {Object.entries(v.priceHistory).sort(([a],[b]) => a === "unknown" ? 1 : b === "unknown" ? -1 : Number(a) - Number(b)).map(([yearKey, ph]) => (
-                                                      <div key={yearKey} style={{ display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center", padding: "4px 0", borderBottom: "1px solid #2a221830" }}>
-                                                        <span style={{ color: "var(--text)", minWidth: "60px" }}>{yearKey === "unknown" ? "Unknown Yr" : yearKey}</span>
-                                                        {(ph.minBuy != null || ph.maxBuy != null) && (
-                                                          <span style={{ color: "var(--danger)" }}>
-                                                            Buy: ${ph.minBuy?.toLocaleString() ?? "?"}{ph.maxBuy != null && ph.maxBuy !== ph.minBuy ? `–$${ph.maxBuy.toLocaleString()}` : ""}
-                                                          </span>
-                                                        )}
-                                                        {(ph.minSell != null || ph.maxSell != null) && (
-                                                          <span style={{ color: "var(--success)" }}>
-                                                            Sell: ${ph.minSell?.toLocaleString() ?? "?"}{ph.maxSell != null && ph.maxSell !== ph.minSell ? `–$${ph.maxSell.toLocaleString()}` : ""}
-                                                          </span>
-                                                        )}
-                                                      </div>
-                                                    ))}
-                                                  </div>
-                                                )}
-                                              </div>
+                                              )}
+                                              {/* Price history */}
+                                              {v.priceHistory && Object.keys(v.priceHistory).length > 0 && (
+                                                <div style={{ marginTop: "6px", padding: "6px 8px", background: "rgba(255,255,255,0.03)", borderRadius: "6px" }}>
+                                                  <div style={{ fontSize: "9px", color: "var(--text-dim)", fontFamily: "'Inter', sans-serif", fontWeight: "600", letterSpacing: "0.5px", marginBottom: "3px" }}>DEAL HISTORY</div>
+                                                  {Object.entries(v.priceHistory).map(([yearKey, ph]) => (
+                                                    <div key={yearKey} style={{ fontSize: "10px", fontFamily: "monospace", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                                                      <span style={{ color: "var(--text-dim)" }}>{yearKey === "unknown" ? "Unknown yr" : yearKey}:</span>
+                                                      {ph.minBuy != null && <span style={{ color: "var(--danger)" }}>Buy ${ph.minBuy.toLocaleString()}{ph.maxBuy != null && ph.maxBuy !== ph.minBuy ? `–$${ph.maxBuy.toLocaleString()}` : ""}</span>}
+                                                      {ph.minSell != null && <span style={{ color: "var(--success)" }}>Sell ${ph.minSell.toLocaleString()}{ph.maxSell != null && ph.maxSell !== ph.minSell ? `–$${ph.maxSell.toLocaleString()}` : ""}</span>}
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              )}
                                             </div>
                                           </div>
                                         </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
+                                      );
+                                    })}
+                                  </div>
+
+                                  <button onClick={() => setCodexDetailBrand(null)}
+                                    style={{ ...menuBtnStyle, width: "100%", marginTop: "16px" }}>CLOSE</button>
+                                </>
+                              );
+                            })()}
                           </div>
-                        );
-                      })}
-                    </div>
+                        </div>
+                      )}
+                    </>
                   );
                 })()}
               </div>
