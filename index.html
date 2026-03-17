@@ -1278,7 +1278,7 @@ function WhiskeyGame() {
   const [activeTab, setActiveTab] = useState("shop");
   const [filterType, setFilterType] = useState("All");
   const [sortBy, setSortBy] = useState("newest");
-  const [playerSkills, setPlayerSkills] = useState({ yearEstimation: 0, industryKnowledge: 0, peopleReader: 0 });
+  const [playerSkills, setPlayerSkills] = useState({ yearEstimation: 0, industryKnowledge: 0, peopleReader: 0, salesmanship: 0 });
   const [codex, setCodex] = useState({}); // { brandName: { typeName+mods: { bottles: [{year,proof,age,mashbill}], minYear, maxYear, ... } } }
   const [codexExpandedBrand, setCodexExpandedBrand] = useState(null);
   const [codexExpandedVariant, setCodexExpandedVariant] = useState(null);
@@ -1298,7 +1298,7 @@ function WhiskeyGame() {
     if (save) {
       setActiveSlot(i); setStoreName(save.storeName); setStoreTier(save.storeTier || 1); setInventory(save.inventory);
       setCash(save.cash ?? STARTING_CASH); setReputation(save.reputation ?? 0); setDay(save.day ?? 1); setMissedRent(save.missedRent ?? 0);
-      setPlayerSkills(save.playerSkills ?? { yearEstimation: 0, industryKnowledge: 0, peopleReader: 0 });
+      setPlayerSkills(save.playerSkills ?? { yearEstimation: 0, industryKnowledge: 0, peopleReader: 0, salesmanship: 0 });
       setCodex(save.codex ?? {});
       setGameOver(false); setDailyLog([]); setShowDaySummary(null); setShowRentDue(null);
       initEngine(save.gameSeed);
@@ -1307,7 +1307,7 @@ function WhiskeyGame() {
       if (save.engineBottleCache) engineRef.current.bottleCache = save.engineBottleCache;
       setActiveTab("shop"); setScreen("game");
     } else {
-      setActiveSlot(i); initEngine(); setInventory([]); setCash(STARTING_CASH); setReputation(0); setDay(1); setMissedRent(0); setGameOver(false); setDailyLog([]); setStoreTier(1); setPlayerSkills({ yearEstimation: 0, industryKnowledge: 0, peopleReader: 0 }); setCodex({}); setScreen("nameStore");
+      setActiveSlot(i); initEngine(); setInventory([]); setCash(STARTING_CASH); setReputation(0); setDay(1); setMissedRent(0); setGameOver(false); setDailyLog([]); setStoreTier(1); setPlayerSkills({ yearEstimation: 0, industryKnowledge: 0, peopleReader: 0, salesmanship: 0 }); setCodex({}); setScreen("nameStore");
     }
     audio.playSfx("buttonClick");
   }, [saves, initEngine, audio]);
@@ -1511,6 +1511,11 @@ function WhiskeyGame() {
   const [midTacticUsed, setMidTacticUsed] = useState(null);
   const [tacticResult, setTacticResult] = useState(null);
   const [showTacticsMenu, setShowTacticsMenu] = useState(false);
+  // Trade flow: convince seller to buy from you first, then resume buying their bottle
+  const [tradeMode, setTradeMode] = useState(false); // true when in "offer a trade" flow
+  const [tradeBottleId, setTradeBottleId] = useState(null); // bottle player is offering to the seller
+  const [tradeResult, setTradeResult] = useState(null); // null | "success" | "failed"
+  const [tradePendingBottle, setTradePendingBottle] = useState(null); // the seller's original bottle, held during trade
 
   // Auto-scroll conversation log when new messages appear
   useEffect(() => {
@@ -1889,7 +1894,7 @@ function WhiskeyGame() {
 
   const advanceToNextCustomer = useCallback(() => {
     const nextIdx = customerIndex + 1;
-    setNegotiating(false); setNegResult(null); setSelectedSellBottle(null); setPreTacticUsed(null); setMidTacticUsed(null); setTacticResult(null); setShowTacticsMenu(false); setConvoPhase("greeting"); setConvoLog([]); setConvoTurns(0); setUsedConvoOptions([]); setTraitHints([]); setConvoWaiting(false);
+    setNegotiating(false); setNegResult(null); setSelectedSellBottle(null); setPreTacticUsed(null); setMidTacticUsed(null); setTacticResult(null); setShowTacticsMenu(false); setConvoPhase("greeting"); setConvoLog([]); setConvoTurns(0); setUsedConvoOptions([]); setTraitHints([]); setConvoWaiting(false); setTradeMode(false); setTradeBottleId(null); setTradeResult(null); setTradePendingBottle(null);
     if (nextIdx < customerQueue.length) {
       const nextCustomer = customerQueue[nextIdx];
       setCustomerIndex(nextIdx);
@@ -2217,9 +2222,43 @@ function WhiskeyGame() {
     setNegHistory(prev => [...prev, { who: "player", amount: customerOffer, text: `You accept $${customerOffer.toLocaleString()}` }, { who: "customer", amount: customerOffer, text: `"Deal!"` }]);
   }, [currentCustomer, customerOffer]);
 
+
+  const handleTradeResume = useCallback(() => {
+    // Restore seller state after side-sale completes
+    if (tradePendingBottle) {
+      setCurrentCustomer(prev => ({
+        ...prev,
+        type: tradePendingBottle.type,
+        bottle: tradePendingBottle.bottle,
+        askingPrice: tradePendingBottle.askingPrice,
+        minAccept: tradePendingBottle.minAccept,
+        openingOffer: tradePendingBottle.openingOffer,
+        maxPay: tradePendingBottle.maxPay,
+        budget: tradePendingBottle.budget,
+      }));
+    }
+    setTradeMode(false);
+    setTradeResult(null);
+    setTradePendingBottle(null);
+    setSelectedSellBottle(null);
+    setNegotiating(false);
+    setNegResult(null);
+    setNegHistory([]);
+    setPreTacticUsed(null);
+    setMidTacticUsed(null);
+    setTacticResult(null);
+  }, [tradePendingBottle]);
+
+  const handleTradeDismiss = useCallback(() => {
+    // Failed trade — dismiss trade UI, continue with normal deal options
+    setTradeMode(false);
+    setTradeResult(null);
+  }, []);
+
   const finalizeDeal = useCallback(() => {
     if (!currentCustomer || negResult !== "accepted") return;
     const finalPrice = negHistory[negHistory.length - 1]?.amount || playerOffer;
+    const isSideSale = tradeResult === "saleMode";
     if (currentCustomer.type === "seller") {
       if (!canAfford(finalPrice) || shelfFull) return;
       const boughtBottle = { ...currentCustomer.bottle, purchasePrice: finalPrice };
@@ -2227,7 +2266,6 @@ function WhiskeyGame() {
       setDailyLog(prev => [...prev, { type: "buy", desc: boughtBottle.displayName, amount: -finalPrice }]);
       setInventory(p => [boughtBottle, ...p]);
       setReputation(prev => prev + (finalPrice < currentCustomer.bottle.trueValue * 0.7 ? REP_PER_GREAT_DEAL : REP_PER_GOOD_DEAL));
-      // Track buy price in codex
       trackPriceInCodex(boughtBottle, "buy", finalPrice);
       audio.playSfx("buySuccess");
     } else {
@@ -2237,24 +2275,33 @@ function WhiskeyGame() {
       setDailyLog(prev => [...prev, { type: "sell", desc: bottle.displayName, amount: finalPrice }]);
       setInventory(p => p.filter(b => b.id !== selectedSellBottle));
       setReputation(prev => prev + (finalPrice > (bottle.purchasePrice || 0) * 1.3 ? REP_PER_GREAT_DEAL : REP_PER_GOOD_DEAL));
-      // Track sell price in codex
       trackPriceInCodex(bottle, "sell", finalPrice);
-      // Also track encounter for buyer-side bottles
       trackBottleInCodex(bottle);
       audio.playSfx("sellSuccess");
     }
     setNegotiating(false);
     setNegResult(null);
     setSelectedSellBottle(null);
-    advanceToNextCustomer();
-  }, [currentCustomer, negResult, negHistory, playerOffer, shelfFull, inventory, selectedSellBottle, audio, advanceToNextCustomer, trackBottleInCodex]);
+    if (isSideSale) {
+      // Side-sale complete — revert to seller's original bottle
+      handleTradeResume();
+    } else {
+      advanceToNextCustomer();
+    }
+  }, [currentCustomer, negResult, negHistory, playerOffer, shelfFull, inventory, selectedSellBottle, audio, advanceToNextCustomer, trackBottleInCodex, tradeResult, handleTradeResume]);
 
   const walkAway = useCallback(() => {
+    const isSideSale = tradeResult === "saleMode";
     setNegotiating(false);
     setNegResult(null);
     audio.playSfx("pass");
-    advanceToNextCustomer();
-  }, [audio, advanceToNextCustomer]);
+    if (isSideSale) {
+      // Walking away from side-sale — just revert to seller's bottle
+      handleTradeResume();
+    } else {
+      advanceToNextCustomer();
+    }
+  }, [audio, advanceToNextCustomer, tradeResult, handleTradeResume]);
 
   const handleStartDay = useCallback(() => {
     const { queue, event } = generateDayQueue();
@@ -2276,6 +2323,98 @@ function WhiskeyGame() {
     setNegotiating(false); setNegResult(null);
     advanceToNextCustomer();
   }, [audio, advanceToNextCustomer]);
+
+  // ---- TRADE FLOW: Convince seller to buy from you first ----
+  const handleOfferTrade = useCallback(() => {
+    // Enter trade mode — show inventory picker
+    setTradeMode(true);
+    setTradeBottleId(null);
+    setTradeResult(null);
+  }, []);
+
+  const handleTradeSelect = useCallback((bottleId) => {
+    setTradeBottleId(bottleId);
+  }, []);
+
+  const handleTradeSubmit = useCallback(() => {
+    if (!tradeBottleId || !currentCustomer) return;
+    const bottle = inventory.find(b => b.id === tradeBottleId);
+    if (!bottle) return;
+    const c = currentCustomer;
+    const skill = playerSkills.salesmanship || 0;
+
+    // Calculate success chance
+    let chance = 0.15 + skill * 0.12;
+    const dispBonus = ((c.disposition || 50) - 50) / 200;
+    chance += dispBonus;
+    const valueRatio = bottle.value / Math.max(c.bottle?.trueValue || 100, 50);
+    chance += Math.min(valueRatio * 0.1, 0.15);
+    const sellerRegion = c.bottle?.region;
+    if (sellerRegion && bottle.region === sellerRegion) chance += 0.08;
+    chance = Math.max(0.08, Math.min(0.92, chance));
+
+    const success = Math.random() < chance;
+
+    if (success) {
+      // Success! Convert customer to temporary buyer for this bottle
+      // Save the seller state so we can restore it later
+      const sellerState = {
+        type: c.type, bottle: c.bottle, askingPrice: c.askingPrice, minAccept: c.minAccept,
+        openingOffer: c.openingOffer, maxPay: c.maxPay, budget: c.budget,
+      };
+      setTradePendingBottle(sellerState);
+
+      // Generate a buyer offer for this bottle
+      const priceSkillMod = 0.55 + skill * 0.08;
+      const budgetRatio = (0.7 + Math.random() * 0.5) * priceSkillMod;
+      const offerRatio = 0.6 + Math.random() * 0.25;
+      const budget = Math.round(bottle.value * budgetRatio * 1.5);
+      const maxPay = Math.round(bottle.value * budgetRatio);
+      const offer = Math.round(maxPay * offerRatio);
+
+      // Temporarily convert customer to buyer
+      setCurrentCustomer(prev => ({
+        ...prev, type: "buyer", openingOffer: offer, maxPay, budget, budgetRatio, offerRatio,
+        filter: () => true, // they'll buy what we showed them
+      }));
+      setSelectedSellBottle(tradeBottleId);
+      setTradeMode(false);
+      setTradeResult("saleMode");
+
+      // Dialogue
+      const successLines = skill >= 4
+        ? ['"Oh, that\'s lovely. Let me take a closer look... what are you asking?"', '"Now that\'s interesting. Alright, I\'m listening — what\'s your price?"']
+        : skill >= 2
+        ? ['"Hmm, you know what — I could be interested. What did you have in mind?"', '"I wasn\'t planning on buying, but that caught my eye. What are you thinking?"']
+        : ['"Well... I suppose I could take a look. What would you want for it?"', '"I didn\'t come here to buy, but alright — name your price."'];
+      const line = successLines[Math.floor(Math.random() * successLines.length)];
+      setNegHistory([{ who: "customer", amount: offer, text: `${line} I'd go $${offer.toLocaleString()}.` }]);
+
+      // Start negotiation
+      setNegotiating(true);
+      setNegRound(0);
+      setNegResult(null);
+      setCustomerOffer(offer);
+      setPlayerOffer(Math.round(offer * 1.3));
+      setPreTacticUsed(null);
+      setMidTacticUsed(null);
+      setTacticResult(null);
+
+      audio.playSfx("buttonClick");
+    } else {
+      setTradeResult("failed");
+      setCurrentCustomer(prev => ({ ...prev, disposition: Math.max(0, (prev.disposition || 50) - 5) }));
+      const failLines = skill >= 3
+        ? ['"I appreciate the offer, but I\'m here to sell, not buy. Can we focus on my bottle?"', '"That\'s not quite what I\'m after right now. So — my bottle?"']
+        : ['"No thanks, I\'m not in the market for that."', '"I appreciate the hustle, but no. About my bottle though..."', '"Not interested. Can we get back to what I came here for?"'];
+      const line = failLines[Math.floor(Math.random() * failLines.length)];
+      setNegHistory(prev => [...prev, { who: "customer", amount: null, text: line }]);
+      audio.playSfx("pass");
+    }
+
+    setTradeBottleId(null);
+  }, [tradeBottleId, currentCustomer, inventory, playerSkills, audio]);
+
 
   // Upgrade store
   const handleUpgrade = useCallback(() => {
@@ -2333,7 +2472,7 @@ function WhiskeyGame() {
     setPreTacticUsed(null);
     setMidTacticUsed(null);
     setTacticResult(null);
-    setConvoPhase("greeting"); setConvoLog([]); setConvoTurns(0); setUsedConvoOptions([]); setTraitHints([]); setConvoWaiting(false);
+    setConvoPhase("greeting"); setConvoLog([]); setConvoTurns(0); setUsedConvoOptions([]); setTraitHints([]); setConvoWaiting(false); setTradeMode(false); setTradeBottleId(null); setTradeResult(null); setTradePendingBottle(null);
   }, [day, dailyLog, cash, tierData, missedRent, customerIndex, currentCustomer, customerQueue]);
 
   const closeDaySummary = useCallback(() => { setShowDaySummary(null); }, []);
@@ -2782,15 +2921,64 @@ function WhiskeyGame() {
                                 </div>
                               );
                             })()}
-                            {shelfFull && <div style={{ color: "var(--danger)", fontSize: "12px", fontFamily: "monospace", padding: "8px 12px", background: "var(--danger)", borderRadius: "6px", border: "1px solid var(--danger)", textAlign: "center" }}>SHELF FULL — You can still pass.</div>}
-                            {!shelfFull && cash < 5 && <div style={{ color: "var(--danger)", fontSize: "12px", fontFamily: "monospace", padding: "8px 12px", background: "var(--danger)", borderRadius: "6px", border: "1px solid var(--danger)", textAlign: "center" }}>LOW FUNDS — ${cash.toLocaleString()} available.</div>}
+                            {shelfFull && !tradeMode && !tradeResult && (
+                              <div style={{ color: "var(--danger)", fontSize: "12px", fontFamily: "monospace", padding: "8px 12px", background: "rgba(255,255,255,0.04)", borderRadius: "6px", border: "1px solid var(--danger)", textAlign: "center" }}>
+                                SHELF FULL{playerSkills.salesmanship >= 1 ? "" : " — You can still pass."}
+                              </div>
+                            )}
+                            {!tradeMode && !tradeResult && playerSkills.salesmanship >= 1 && !negotiating && (
+                              <button onClick={handleOfferTrade}
+                                style={{ width: "100%", padding: "12px 16px", background: "var(--surface)", border: "2px solid var(--accent)", borderRadius: "10px", color: "var(--accent)", fontSize: "13px", cursor: "pointer", fontFamily: "'Inter', sans-serif", fontWeight: "700", textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>
+                                Offer a Sale
+                              </button>
+                            )}
+                            {/* Trade mode: pick a bottle to offer the seller */}
+                            {tradeMode && !tradeResult && (
+                              <div style={{ width: "100%", animation: "fadeIn 0.3s ease-out" }}>
+                                <div style={{ fontSize: "12px", color: "var(--text-dim)", fontFamily: "'Inter', sans-serif", textAlign: "center", marginBottom: "8px" }}>
+                                  {playerSkills.salesmanship >= 4 ? "Pick something from your collection to offer." : playerSkills.salesmanship >= 2 ? "Show them something they might like." : "Try offering one of your bottles."}
+                                </div>
+                                <div style={{ maxHeight: "200px", overflowY: "auto", display: "flex", flexWrap: "wrap", gap: "6px", justifyContent: "center", marginBottom: "10px" }}>
+                                  {inventory.map(b => (
+                                    <div key={b.id} onClick={() => handleTradeSelect(b.id)}
+                                      style={{ padding: "6px", borderRadius: "8px", cursor: "pointer", width: "160px",
+                                        background: tradeBottleId === b.id ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.03)",
+                                        border: tradeBottleId === b.id ? "2px solid var(--accent)" : "1px solid var(--border)" }}>
+                                      <div style={{ fontSize: "11px", color: "var(--text)", fontFamily: "'Playfair Display', Georgia, serif", lineHeight: 1.2 }}>{b.displayName}</div>
+                                      <div style={{ fontSize: "9px", color: "var(--text-dim)", fontFamily: "monospace", marginTop: "2px" }}>{b.typeName} · {b.ageDisplay || `${b.age}yr`} · {b.proof}pf</div>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div style={{ display: "flex", gap: "8px" }}>
+                                  <button onClick={handleTradeSubmit} disabled={!tradeBottleId}
+                                    style={{ flex: 1, padding: "10px", background: tradeBottleId ? "linear-gradient(145deg, var(--accent), var(--accent-dark))" : "var(--border)", border: "none", borderRadius: "8px", color: tradeBottleId ? "var(--bg1)" : "var(--text-dim)", fontSize: "13px", fontWeight: "bold", cursor: tradeBottleId ? "pointer" : "not-allowed", fontFamily: "monospace", opacity: tradeBottleId ? 1 : 0.5 }}>
+                                    PITCH
+                                  </button>
+                                  <button onClick={handleTradeDismiss}
+                                    style={{ padding: "10px 16px", background: "transparent", border: "2px solid var(--text-dim)", borderRadius: "8px", color: "var(--text-dim)", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
+                                    CANCEL
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                            {/* Sale pitch result */}
+                            {tradeResult === "failed" && (
+                              <div style={{ textAlign: "center", animation: "fadeIn 0.3s ease-out" }}>
+                                <div style={{ color: "var(--text-dim)", fontSize: "13px", fontFamily: "monospace", marginBottom: "8px" }}>They weren't interested in buying.</div>
+                                <button onClick={handleTradeDismiss}
+                                  style={{ padding: "10px 20px", background: "transparent", border: "2px solid var(--text-dim)", borderRadius: "8px", color: "var(--text-dim)", fontSize: "13px", fontWeight: "bold", cursor: "pointer", fontFamily: "monospace" }}>
+                                  BACK TO DEAL
+                                </button>
+                              </div>
+                            )}
+                            {!shelfFull && cash < 5 && <div style={{ color: "var(--danger)", fontSize: "12px", fontFamily: "monospace", padding: "8px 12px", background: "rgba(255,255,255,0.04)", borderRadius: "6px", border: "1px solid var(--danger)", textAlign: "center" }}>LOW FUNDS — ${cash.toLocaleString()} available.</div>}
                             {tacticResult && (
                               <div style={{ fontSize: "13px", color: tacticResult.effect === "great" || tacticResult.effect === "good" ? "var(--success)" : tacticResult.effect === "bad" || tacticResult.effect === "terrible" ? "var(--danger)" : "var(--text-muted)", fontStyle: "italic", textAlign: "center", padding: "8px 12px", background: "rgba(255,255,255,0.04)", borderRadius: "6px" }}>
                                 {tacticResult.text}
                               </div>
                             )}
 
-                            {!negotiating && (
+                            {!negotiating && !tradeMode && !tradeResult && (
                               <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "center", width: "100%" }}>
                                 {!shelfFull && (
                                   <>
@@ -3132,6 +3320,9 @@ function WhiskeyGame() {
                       <SkillRow skillKey="peopleReader" label="People Reader"
                         desc={{ none: "No read on customer traits", master: "Full customer profiling" }}
                         accuracyFn={(lv) => ["", "Sense sociability", "Read patience", "Gauge knowledge", "Judge confidence", "Full disposition read"][lv]} />
+                      <SkillRow skillKey="salesmanship" label="Salesmanship"
+                        desc={{ none: "Can't pitch to sellers", master: "Master closer — turn any seller into a buyer" }}
+                        accuracyFn={(lv) => ["", "Basic pitch", "Better persuasion", "Fair trade prices", "Pitch any bottle", "Top dollar trades"][lv]} />
                     </>
                   );
                 })()}
