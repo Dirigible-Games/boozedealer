@@ -2656,8 +2656,8 @@ function WhiskeyGame() {
                     {/* Day event banner */}
                     {dayEvent && (
                       <div style={{ textAlign: "center", marginBottom: "16px", padding: "10px 16px", borderRadius: "8px",
-                        background: dayEvent.type === "hotTip" ? "var(--accent)" : "var(--success)",
-                        border: `1px solid ${dayEvent.type === "hotTip" ? "#D4AF3730" : "var(--success)"}`,
+                        background: "rgba(255,255,255,0.05)",
+                        border: `1px solid ${dayEvent.type === "hotTip" ? "var(--accent)" : "var(--success)"}`,
                         fontSize: "12px", fontFamily: "monospace" }}>
                         <span style={{ color: dayEvent.type === "hotTip" ? "var(--accent)" : "var(--success)", fontWeight: "bold" }}>{dayEvent.label}: </span>
                         <span style={{ color: "var(--text-muted)" }}>{dayEvent.desc}</span>
