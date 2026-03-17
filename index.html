@@ -936,12 +936,12 @@ function StorefrontSVG({ storeName, tier = 1 }) {
 // COLOR THEMES
 // ============================================================================
 const THEMES = {
-  classic: { name: "Classic Gold", accent: "#D4AF37", accentDark: "#B8960C", bg1: "#0d0a07", bg2: "#1a1510", bg3: "#261f18", surface: "#1a1510", border: "#3a3028", text: "#F5E6CA", textMuted: "#C4A882", textDim: "#8B7355", success: "#22C55E", danger: "#C0392B", buyAccent: "#3B82F6" },
-  midnight: { name: "Midnight Blue", accent: "#60A5FA", accentDark: "#2563EB", bg1: "#070B14", bg2: "#0F1729", bg3: "#1A2340", surface: "#0F1729", border: "#2A3555", text: "#E2E8F0", textMuted: "#94A3B8", textDim: "#64748B", success: "#34D399", danger: "#F87171", buyAccent: "#A78BFA" },
-  ember: { name: "Ember", accent: "#F97316", accentDark: "#C2410C", bg1: "#0C0704", bg2: "#1A0F09", bg3: "#2A1A10", surface: "#1A0F09", border: "#3D2816", text: "#FDE8D0", textMuted: "#D4A574", textDim: "#9A6E42", success: "#4ADE80", danger: "#EF4444", buyAccent: "#FBBF24" },
-  forest: { name: "Forest", accent: "#4ADE80", accentDark: "#16A34A", bg1: "#050C07", bg2: "#0C1A10", bg3: "#162818", surface: "#0C1A10", border: "#1E3A22", text: "#D9F2E0", textMuted: "#86CEAA", textDim: "#4E8B6A", success: "#A3E635", danger: "#FB923C", buyAccent: "#22D3EE" },
-  royal: { name: "Royal Purple", accent: "#A78BFA", accentDark: "#7C3AED", bg1: "#08061A", bg2: "#110E2A", bg3: "#1C1840", surface: "#110E2A", border: "#2E2855", text: "#E8E0F5", textMuted: "#B8A5D4", textDim: "#7B6BA0", success: "#34D399", danger: "#FB7185", buyAccent: "#F472B6" },
-  noir: { name: "Noir", accent: "#E5E5E5", accentDark: "#A3A3A3", bg1: "#0A0A0A", bg2: "#141414", bg3: "#1E1E1E", surface: "#141414", border: "#2E2E2E", text: "#F5F5F5", textMuted: "#D4D4D4", textDim: "#737373", success: "#4ADE80", danger: "#F87171", buyAccent: "#60A5FA" },
+  classic: { name: "Bourbon Barrel", accent: "#D4AF37", accentDark: "#B8960C", bg1: "#0d0a07", bg2: "#1a1510", bg3: "#261f18", surface: "#1a1510", border: "#3a3028", text: "#F5E6CA", textMuted: "#C4A882", textDim: "#8B7355", success: "#22C55E", danger: "#C0392B", buyAccent: "#3B82F6" },
+  midnight: { name: "Blue", accent: "#60A5FA", accentDark: "#2563EB", bg1: "#070B14", bg2: "#0F1729", bg3: "#1A2340", surface: "#0F1729", border: "#2A3555", text: "#E2E8F0", textMuted: "#94A3B8", textDim: "#64748B", success: "#34D399", danger: "#F87171", buyAccent: "#A78BFA" },
+  ember: { name: "Red", accent: "#F97316", accentDark: "#C2410C", bg1: "#0C0704", bg2: "#1A0F09", bg3: "#2A1A10", surface: "#1A0F09", border: "#3D2816", text: "#FDE8D0", textMuted: "#D4A574", textDim: "#9A6E42", success: "#4ADE80", danger: "#EF4444", buyAccent: "#FBBF24" },
+  forest: { name: "Green", accent: "#4ADE80", accentDark: "#16A34A", bg1: "#050C07", bg2: "#0C1A10", bg3: "#162818", surface: "#0C1A10", border: "#1E3A22", text: "#D9F2E0", textMuted: "#86CEAA", textDim: "#4E8B6A", success: "#A3E635", danger: "#FB923C", buyAccent: "#22D3EE" },
+  royal: { name: "Purple", accent: "#A78BFA", accentDark: "#7C3AED", bg1: "#08061A", bg2: "#110E2A", bg3: "#1C1840", surface: "#110E2A", border: "#2E2855", text: "#E8E0F5", textMuted: "#B8A5D4", textDim: "#7B6BA0", success: "#34D399", danger: "#FB7185", buyAccent: "#F472B6" },
+  noir: { name: "Black", accent: "#E5E5E5", accentDark: "#A3A3A3", bg1: "#0A0A0A", bg2: "#141414", bg3: "#1E1E1E", surface: "#141414", border: "#2E2E2E", text: "#F5F5F5", textMuted: "#D4D4D4", textDim: "#737373", success: "#4ADE80", danger: "#F87171", buyAccent: "#60A5FA" },
 };
 
 function themeToCSS(t) {
@@ -1214,17 +1214,17 @@ function WhiskeyGame() {
   // Each option has: id, label (shown on button), category, variants (player lines),
   // requiresSkill/minLevel, dispositionEffects per trait tier, response pools per trait combo
   const CONVO_OPTIONS = [
-    { id: "greet_warm", label: "Warm greeting", category: "greeting",
+    { id: "greet_warm", label: "Friendly Greeting", category: "greeting",
       variants: ["Welcome! Great to have you in the shop.", "Hey there! Come on in, take a look around.", "Good to see a new face! Let me know if anything catches your eye."],
       dispositionEffects: { highSociability: 6, lowSociability: 1, highPatience: 2, lowPatience: 0, highConfidence: 1, lowConfidence: 3 },
       responses: {
-        highSociability: ['"Thanks! I love what you\'ve done with the place."', '"What a great atmosphere in here! I\'ve been meaning to stop by."'],
-        lowSociability: ['"Thanks."', '"Mm, hello."'],
-        highConfidence: ['"Appreciate it. I know what I\'m looking for."'],
-        lowConfidence: ['"Oh, thanks... I\'m just looking around, I think."'],
+        highSociability: ['"Thanks! I love what you\'ve done with the place."', '"What a great atmosphere in here! I\'ve been meaning to stop by.",'],
+        lowSociability: ['"Thanks."', '"Mm, hello."', '"Yeah, hey."'],
+        highConfidence: ['"Appreciate it. I know what I\'m looking for."','"Thanks. I\'m really here just to see if there\'s any interesting {typeRef} bottles in the area."'],
+        lowConfidence: ['"Oh, thanks... I\'m just looking around, I think."','*customer just nods back silently*','"...do you guys have have any whiskey or bourbon here?"'],
       }},
-    { id: "greet_professional", label: "Professional greeting", category: "greeting",
-      variants: ["Good afternoon. How can I help you today?", "Welcome to the shop. Anything I can assist with?", "Hello. Let me know if you have any questions."],
+    { id: "greet_professional", label: "Professional Greeting", category: "greeting",
+      variants: ["Good afternoon. How can I help you today?", "Welcome in. Anything I can assist with?", "Hello. Let me know if you have any questions."],
       dispositionEffects: { highSociability: -2, lowSociability: 4, highPatience: 3, lowPatience: 2, highConfidence: 3, lowConfidence: 1 },
       responses: {
         highSociability: ['"A bit formal, but sure! What\'s good in here?"', '"All business, huh? I can respect that."'],
@@ -1232,7 +1232,7 @@ function WhiskeyGame() {
         highConfidence: ['"I think I can find my way around. Thanks."'],
         lowConfidence: ['"Oh, um, sure. I\'ll just browse a bit."'],
       }},
-    { id: "ask_favorites", label: "Ask about favorites", category: "smalltalk",
+    { id: "ask_favorites", label: "Whiskey Preference Chat", category: "smalltalk",
       variants: ["So what's your go-to pour at the end of a long day?", "Got any favorites on your shelf at home?", "What kind of whiskey do you usually gravitate toward?"],
       dispositionEffects: { highSociability: 5, lowSociability: -2, highKnowledge: 4, lowKnowledge: -3, highPatience: 2, lowPatience: -4 },
       responses: {
@@ -1241,7 +1241,7 @@ function WhiskeyGame() {
         highSociability: ['"Oh, I love talking about this! Where do I even start..."', '"Great question! I could talk whiskey all day."'],
         lowSociability: ['"I\'d rather not get into it."', '"I keep my preferences to myself."'],
       }},
-    { id: "ask_experience", label: "Ask about collecting", category: "smalltalk",
+    { id: "ask_experience", label: "Collection Small Talk", category: "smalltalk",
       variants: ["Been collecting long?", "How'd you get into whiskey?", "You seem like you know your way around a bottle shop."],
       dispositionEffects: { highSociability: 4, lowSociability: -1, highConfidence: 3, lowConfidence: -4, highKnowledge: 2, lowKnowledge: -5 },
       responses: {
@@ -1249,24 +1249,24 @@ function WhiskeyGame() {
         highKnowledge_lowConfidence: ['"I\'ve picked up a few things over the years, I suppose."'],
         lowKnowledge_highConfidence: ['"I know what I like. That\'s all that matters, right?"'],
         lowKnowledge_lowConfidence: ['"Not really... I\'m pretty new to all this, to be honest."', '"I don\'t know much. That\'s kind of why I\'m here."'],
-        lowPatience: ['"Look, I\'m not here for a chat."', '"Can we just get to business?"'],
+        lowPatience: ['"Sorry, I\'m not here for to chat."', '"Can we just get to business?"'],
       }},
-    { id: "industry_talk", label: "Talk industry trends", category: "expert",
+    { id: "industry_talk", label: "Insider Talk", category: "expert",
       requiresSkill: "industryKnowledge", minLevel: 1,
-      variants: ["Have you been following the single barrel releases this season?", "The barrel-aged market has been wild lately.", "Some interesting expressions coming out of the smaller distilleries."],
+      variants: ["Have you been hunting down any Single Barrels this year?", "Sure seems to be a lot of cool barrel finishing happening these days.", "Seems like this year craft distilleries are really taking off."],
       skillVariants: {
-        2: ["I've been tracking the {brandRef} releases — their proof points have been climbing.", "The secondary market on barrel proof {typeRef} has been heating up."],
-        4: ["I've noticed {brandRef} shifted their mashbill slightly in recent batches. The rye content is up.", "The {typeRef} category is seeing some serious premiums on anything with an age statement over 10."],
+        2: ["I've been tracking the {brandRef} releases — their proof points have been climbing.", "The secondary market on barrel proof {typeRef} has been heating up.", "Have you seen any of those hard to find bottles from {brandRef}? They\'ve really been going up in price."],
+        4: ["I've noticed batches from {brandRef} seem to be a little different lately. Seems like they might've even switched up something in their mashbill.", "The {typeRef} category is seeing some serious premiums on anything 10 years or older lately."],
       },
       dispositionEffects: { highKnowledge: 8, lowKnowledge: -6, highConfidence: 2, lowConfidence: -3, highSociability: 3, lowSociability: 0 },
       responses: {
         highKnowledge: ['"Absolutely. The market\'s been shifting. Good to talk to someone who pays attention."', '"You clearly know your stuff. I respect that."'],
-        lowKnowledge: ['"I... yeah, I\'ve heard some things."', '"Honestly, most of that goes over my head."', '"Sure, sure..."'],
+        lowKnowledge: ['"I... yeah, I\'ve heard some things."', '"Honestly, most of that goes over my head."', '"Sure, sure..."', '"I mostly keep up with every video Broozal puts up on Youtube. He is just awesome."'],
         lowConfidence_lowKnowledge: ['"Oh... I don\'t really follow all that."', '"That\'s a bit beyond me, I think."'],
       }},
     { id: "read_customer", label: "Size them up", category: "intuition",
       requiresSkill: "peopleReader", minLevel: 1,
-      variants: ["So, what brings you in today specifically?", "I get all sorts in here. What's your story?", "You look like someone with a purpose today."],
+      variants: ["So how's it going today?", "I get all sorts in here. What's your story?", "You look like someone with a purpose today."],
       dispositionEffects: { highSociability: 2, lowSociability: -1, highConfidence: 3, lowConfidence: -2 },
       responses: {
         highSociability: ['"Oh, I just love checking out new shops!"'],
@@ -1280,7 +1280,7 @@ function WhiskeyGame() {
   ];
 
   const INQUIRE_BUSINESS = {
-    id: "inquire_business", label: "Let's talk business",
+    id: "inquire_business", label: "Talk business",
     variants: ["So, what can I do for you today?", "Ready to do some business?", "What brings you to the counter?"],
     dispositionEffects: { highSociability: -3, lowSociability: 3, highPatience: 0, lowPatience: 4 },
     responses: {
@@ -1502,45 +1502,45 @@ function WhiskeyGame() {
   const TACTICS = {
     compliment: {
       id: "compliment", label: "Compliment",
-      sellerText: "That's a really nice bottle you've got there.",
-      buyerText: "You clearly have excellent taste.",
+      sellerText: ["That's a really nice bottle you've got there.", "Don't see many of those in this area.", "Just love pretty much everything this distillery puts out."],
+      buyerText: ["Well, you clearly have excellent taste.", "Ah, you found my last one of those. Good eye.", "A fellow connoisseur with an eye for quality, I see."],
       effects: {
         desperate: "good", casual: "great", shrewd: "neutral", collector: "good", impatient: "neutral", friendly: "great",
       },
       responses: {
-        great: { seller: ['"Oh, you think so? Maybe I should hold onto it... nah, just kidding. Let\'s make a deal."', '"Aw, thanks! That means a lot coming from someone in the business."'], buyer: ['"You really think so? Well then, I trust your pricing."', '"That\'s kind of you to say! I\'m happy to pay fairly for quality."'] },
+        great: { seller: ['"Oh, you think so? Maybe I should hold onto it... nah, just kidding. Let\'s make a deal."', '"Aw, thanks! That means a lot coming from someone in the business."'], buyer: ['"Oh, thanks! I\'ve been looking for this a while now."', '"That\'s kind of you to say! These are hard to find, so I know they go for more."'] },
         good: { seller: ['"Thanks, I appreciate that."', '"Yeah, it\'s a decent one, isn\'t it?"'], buyer: ['"Thanks! I do try to find the good stuff."', '"I appreciate that."'] },
         neutral: { seller: ['"Sure. So what\'s your offer?"', '"Thanks. Anyway, about the price..."'], buyer: ['"Mhm. So what are you asking?"', '"Flattery aside, what\'s the number?"'] },
-        bad: { seller: ['"I don\'t need compliments, I need a fair price."', '"Save the charm. What\'ll you pay?"'], buyer: ['"I know what I like. Just name your price."'] },
+        bad: { seller: ['"I don\'t need compliments, I need a fair price."', '"Save the charm. What\'ll you pay?"'], buyer: ['"I know what I like. What are you asking for it?"'] },
       },
       // Effect on negotiation: modifies askingPrice (seller) or maxPay (buyer)
       multipliers: { great: 0.85, good: 0.92, neutral: 1.0, bad: 1.05 },
     },
     flaw: {
-      id: "flaw", label: "Point out flaw",
+      id: "flaw", label: "Nitpick",
       sellerText: null, // dynamic based on bottle
       buyerText: null,
       effects: {
         desperate: "great", casual: "good", shrewd: "bad", collector: "terrible", impatient: "neutral", friendly: "good",
       },
       responses: {
-        great: { seller: ['"Oh... I didn\'t notice that. Maybe it\'s not worth as much as I thought."', '"Really? Hmm, I guess I should lower my expectations."'], buyer: [] },
-        good: { seller: ['"Fair point, I suppose."', '"Yeah, you might be right about that."'], buyer: [] },
-        neutral: { seller: ['"I mean, it is what it is."', '"That doesn\'t change much for me."'], buyer: ['"Noted, but I still want it."'] },
+        great: { seller: ['"Oh... I didn\'t notice that. Maybe it\'s not worth as much as I thought."', '"Really? Hmm, I guess I should lower my expectations."'], buyer: ['"Oh, I guess I must not be paying enough attention to the market."'] },
+        good: { seller: ['"Fair point, I suppose."', '"Yeah, you might be right about that."'], buyer: ['"Well, maybe you have a point."'] },
+        neutral: { seller: ['"I mean, it is what it is."', '"That doesn\'t change much for me."'], buyer: ['"Noted, but I still think that\'s what the price SHOULD be."'] },
         bad: { seller: ['"I\'m well aware of what this bottle is. Don\'t try to lowball me."', '"Nice try, but I know the market."'], buyer: ['"Are you trying to talk me out of buying? Because it\'s working."'] },
         terrible: { seller: ['"That\'s insulting. I think we\'re done here."'], buyer: ['"You know what, I don\'t think I want to do business with you."'] },
       },
       multipliers: { great: 0.78, good: 0.88, neutral: 1.0, bad: 1.08, terrible: null }, // null = walk away
     },
     compete: {
-      id: "compete", label: "Mention competition",
+      id: "compete", label: "Mention Competition",
       sellerText: "I've seen bottles like this go for less at other shops.",
       buyerText: "I've had some interest from another buyer on this one.",
       effects: {
         desperate: "great", casual: "good", shrewd: "bad", collector: "neutral", impatient: "good", friendly: "neutral",
       },
       responses: {
-        great: { seller: ['"Oh, really? Well, I just want to get this done. How about a better price?"', '"I don\'t have time to shop around. I\'ll come down."'], buyer: ['"Another buyer? I better not lose this. I\'ll pay more."', '"Don\'t sell it out from under me!"'] },
+        great: { seller: ['"Oh, really? Well, I just want to get this done. How about a better price?"', '"I don\'t have time to shop around. I\'ll come down."'], buyer: ['"Another buyer? I better not lose this. I\'ll beat their offer."', '"Don\'t sell it out from under me!"'] },
         good: { seller: ['"Fair enough, I guess the market is what it is."'], buyer: ['"Alright, maybe I can stretch my budget a bit."'] },
         neutral: { seller: ['"I\'ll keep that in mind."', '"Maybe so, but I know what I want for this."'], buyer: ['"Good for them. I know what I\'m willing to pay."'] },
         bad: { seller: ['"Then go buy it there. I know my price."', '"I doubt that. This is worth what I\'m asking."'], buyer: ['"Don\'t try to play games with me."'] },
@@ -1578,15 +1578,17 @@ function WhiskeyGame() {
         bad: { seller: ['"I know exactly what this is worth, year or no year. Actually, let me reconsider my price."', '"Trying to use that against me? I\'ve done my homework."'] },
       },
       multipliers: { great: 0.72, good: 0.88, neutral: 1.0, bad: 1.10 },
+      requiresSkill: "industryKnowledge", minLevel: 1,
     },
   };
 
   const getFlawText = useCallback((bottle, forBuyer) => {
-    if (forBuyer) return "I should mention, the provenance on this one is a bit uncertain.";
+    if (forBuyer) return "That would've been a fair price for this a few years ago.";
     const flaws = [];
     if (!bottle.yearKnown) flaws.push("no year on the label");
     if (bottle.ageDisplay === "Unstated") flaws.push("no age statement");
     if (bottle.proof <= 90) flaws.push("pretty standard proof");
+    if (bottle.ageDisplay <=4) flaws.push("a pretty young whiskey here");
     if (bottle.modifiers.length === 0) flaws.push("no special finishes or releases");
     if (flaws.length === 0) flaws.push("a few shelf marks on the bottle");
     return `I notice there's ${flaws[0]}${flaws.length > 1 ? ` and ${flaws[1]}` : ""}.`;
