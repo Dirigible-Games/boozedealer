@@ -1298,7 +1298,7 @@ function WhiskeyGame() {
     if (save) {
       setActiveSlot(i); setStoreName(save.storeName); setStoreTier(save.storeTier || 1); setInventory(save.inventory);
       setCash(save.cash ?? STARTING_CASH); setReputation(save.reputation ?? 0); setDay(save.day ?? 1); setMissedRent(save.missedRent ?? 0);
-      setPlayerSkills(save.playerSkills ?? { yearEstimation: 0, industryKnowledge: 0, peopleReader: 0, salesmanship: 0 });
+      setPlayerSkills({ yearEstimation: 0, industryKnowledge: 0, peopleReader: 0, salesmanship: 0, ...(save.playerSkills ?? {}) });
       setCodex(save.codex ?? {});
       setGameOver(false); setDailyLog([]); setShowDaySummary(null); setShowRentDue(null);
       initEngine(save.gameSeed);
@@ -3272,11 +3272,12 @@ function WhiskeyGame() {
                 </p>
                 {/* Skill: Year Estimation */}
                 {(() => {
+                  const skills = playerSkills || {};
                   const SkillRow = ({ skillKey, label, desc, accuracyFn }) => {
-                    const level = playerSkills[skillKey];
+                    const level = skills[skillKey] || 0;
                     const nextLevel = level + 1;
                     const maxed = level >= 5;
-                    const cost = maxed ? 0 : SKILL_COSTS[nextLevel];
+                    const cost = maxed ? 0 : (SKILL_COSTS[nextLevel] || 0);
                     const canBuy = !maxed && cash >= cost;
                     return (
                       <div style={{ background: `linear-gradient(145deg, var(--bg2), var(--bg3))`, borderRadius: "12px", padding: "16px", border: "1px solid var(--border)", width: "100%", maxWidth: "500px" }}>
