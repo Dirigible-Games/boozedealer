@@ -388,17 +388,514 @@ class AudioManager {
 // ============================================================================
 // PROCEDURAL GENERATION ENGINE
 // ============================================================================
+// ============================================================================
+// REGION CONFIGURATION — Add new regions here
+// ============================================================================
+const REGION_CONFIG = {
+  American: {
+    brandAgeDistribution: { young: 0.25, established: 0.45, legacy: 0.30 },
+    catalogSize: { young: [2, 4], established: [5, 15], legacy: [8, 20] },
+    coreMax: { young: 2, established: 6, legacy: 8 },
+    whiskyTypes: ["Bourbon", "Rye"],
+    // American brands can have both Bourbon and Rye
+    multiTypeChance: 0.6,
+    proofRange: { core: [80, 101], caskStrength: [112, 141] },
+    ageRules: {
+      coreAge: 4,
+      coreAgeStated: false,
+      specialAgeRange: [7, 13],
+      ageTiers: [ // minAge -> minimum rarity
+        { min: 7, rarity: "Uncommon" },
+        { min: 10, rarity: "Rare" },
+        { min: 14, rarity: "Epic" },
+      ],
+    },
+    availableModifiers: ["Cask Strength", "Single Barrel", "Bottled-in-Bond", "Double Oaked", "Finished in Sherry Barrels", "Finished in Cognac Barrels", "Finished in Rum Barrels", "Finished in Stout Barrels", "Finished in Port Barrels"],
+    productTemplates: [
+      { id: "core_standard", category: "core", namePattern: "{type}", frequency: "core", proofRange: [80, 101], age: 4, ageStated: false, modifiers: [], baseRarity: "Common", weight: 10 },
+      { id: "core_bib", category: "core", namePattern: "Bottled-in-Bond {type}", frequency: "core", proof: 100, ageRange: [4, 10], ageStated: true, modifiers: ["Bottled-in-Bond"], baseRarity: "Common", weight: 4 },
+      { id: "core_cask_value", category: "core", namePattern: "Cask Strength {type}", frequency: "core", proofRange: [112, 130], age: 4, ageStated: false, modifiers: ["Cask Strength"], baseRarity: "Common", weight: 2 },
+      { id: "core_double_oak", category: "core", namePattern: "Double Oaked {type}", frequency: "core", proofRange: [86, 100], age: 4, ageStated: false, modifiers: ["Double Oaked"], baseRarity: "Common", weight: 3 },
+      { id: "aged_statement", category: "special", namePattern: "{age} Year {type}", frequency: "annual", ageRange: [7, 13], ageStated: true, proofRange: [86, 110], modifiers: [], baseRarity: "auto_age", weight: 6 },
+      { id: "single_barrel", category: "special", namePattern: "Single Barrel {type}", frequency: "annual", ageRange: [7, 13], ageVaries: true, ageStated: true, proofRange: [90, 115], modifiers: ["Single Barrel"], baseRarity: "Uncommon", weight: 4 },
+      { id: "cask_strength_special", category: "special", namePattern: "Cask Strength Reserve", frequency: "annual", ageRange: [7, 13], ageVaries: true, ageStated: true, proofRange: [112, 141], modifiers: ["Cask Strength"], baseRarity: "Uncommon", weight: 3 },
+      { id: "barrel_select", category: "special", namePattern: "Barrel Select {type}", frequency: "annual", ageRange: [8, 12], ageVaries: true, ageStated: true, proofRange: [100, 130], modifiers: ["Single Barrel", "Cask Strength"], baseRarity: "Rare", weight: 2 },
+      { id: "limited_release", category: "special", namePattern: "Limited Edition {type}", frequency: "limited", ageRange: [10, 18], ageStated: true, proofRange: [90, 130], modifiers: [], baseRarity: "Rare", weight: 1, hasStandoutYears: true },
+      { id: "finished", category: "special", namePattern: "{finish} Finish {type}", frequency: "annual", age: 4, ageStated: false, proofRange: [86, 100], modifierPool: ["Finished in Sherry Barrels", "Finished in Cognac Barrels", "Finished in Rum Barrels", "Finished in Port Barrels"], baseRarity: "Common", weight: 2 },
+    ],
+  },
+  Canadian: {
+    brandAgeDistribution: { young: 0.05, established: 0.15, legacy: 0.80 },
+    catalogSize: { young: [1, 3], established: [2, 5], legacy: [3, 7] },
+    coreMax: { young: 1, established: 2, legacy: 3 },
+    whiskyTypes: ["Rye"],
+    multiTypeChance: 0,
+    proofRange: { core: [80, 90], caskStrength: [112, 130] },
+    ageRules: {
+      coreAge: 4,
+      coreAgeStated: false,
+      specialAgeRange: [14, 20],
+      ageTiers: [
+        { min: 14, rarity: "Uncommon" },
+        { min: 18, rarity: "Rare" },
+      ],
+    },
+    availableModifiers: ["Cask Strength"],
+    productTemplates: [
+      { id: "core_standard", category: "core", namePattern: "Canadian {type}", frequency: "core", proofRange: [80, 90], age: 4, ageStated: false, modifiers: [], baseRarity: "Common", weight: 10 },
+      { id: "core_premium", category: "core", namePattern: "Premium {type}", frequency: "core", proofRange: [80, 92], age: 6, ageStated: false, modifiers: [], baseRarity: "Common", weight: 5 },
+      { id: "aged_statement", category: "special", namePattern: "{age} Year {type}", frequency: "annual", ageRange: [14, 20], ageStated: true, proofRange: [80, 92], modifiers: [], baseRarity: "Uncommon", weight: 3 },
+      { id: "cask_strength", category: "special", namePattern: "Cask Strength {type}", frequency: "limited", proofRange: [112, 130], ageRange: [8, 14], ageStated: true, modifiers: ["Cask Strength"], baseRarity: "Uncommon", weight: 1 },
+      { id: "limited_release", category: "special", namePattern: "Special Reserve", frequency: "limited", ageRange: [14, 20], ageStated: true, proofRange: [80, 92], modifiers: [], baseRarity: "Rare", weight: 1, hasStandoutYears: true },
+    ],
+  },
+  Scottish: {
+    brandAgeDistribution: { young: 0.05, established: 0.15, legacy: 0.80 },
+    catalogSize: { young: [2, 4], established: [3, 8], legacy: [5, 12] },
+    coreMax: { young: 2, established: 4, legacy: 6 },
+    whiskyTypes: ["Single Malt Scotch", "Blended Scotch"],
+    multiTypeChance: 0.3,
+    proofRange: { core: [80, 92], caskStrength: [112, 130] },
+    ageRules: {
+      coreAge: 12,
+      coreAgeStated: true,
+      specialAgeRange: [15, 35],
+      ageTiers: [
+        { min: 12, rarity: "Common" },
+        { min: 15, rarity: "Uncommon" },
+        { min: 18, rarity: "Uncommon" },
+        { min: 21, rarity: "Rare" },
+        { min: 25, rarity: "Rare" },
+        { min: 30, rarity: "Epic" },
+        { min: 35, rarity: "Legendary" },
+        { min: 50, rarity: "Unicorn" },
+      ],
+    },
+    availableModifiers: ["Peated", "Heavily Peated", "Sherry Cask", "Port Cask", "Ex-Bourbon Cask", "Double Cask", "Quarter Cask"],
+    productTemplates: [
+      { id: "core_12", category: "core", namePattern: "12 Year", frequency: "core", age: 12, ageStated: true, proofRange: [80, 92], modifiers: [], baseRarity: "Common", weight: 10 },
+      { id: "core_15", category: "core", namePattern: "15 Year", frequency: "core", age: 15, ageStated: true, proofRange: [80, 92], modifiers: [], baseRarity: "Uncommon", weight: 6 },
+      { id: "core_18", category: "core", namePattern: "18 Year", frequency: "core", age: 18, ageStated: true, proofRange: [80, 92], modifiers: [], baseRarity: "Uncommon", weight: 4 },
+      { id: "age_21", category: "special", namePattern: "21 Year", frequency: "annual", age: 21, ageStated: true, proofRange: [80, 92], modifiers: [], baseRarity: "Rare", weight: 3 },
+      { id: "age_25", category: "special", namePattern: "25 Year", frequency: "annual", age: 25, ageStated: true, proofRange: [80, 92], modifiers: [], baseRarity: "Rare", weight: 2 },
+      { id: "age_30", category: "special", namePattern: "30 Year", frequency: "limited", age: 30, ageStated: true, proofRange: [80, 92], modifiers: [], baseRarity: "Epic", weight: 1 },
+      { id: "cask_strength", category: "special", namePattern: "Cask Strength", frequency: "core", proofRange: [112, 130], age: 12, ageStated: true, modifiers: ["Cask Strength"], baseRarity: "Uncommon", weight: 2 },
+      { id: "cask_finish", category: "special", namePattern: "{finish}", frequency: "core", age: 12, ageStated: true, proofRange: [80, 92], modifierPool: ["Sherry Cask", "Port Cask", "Ex-Bourbon Cask", "Double Cask", "Quarter Cask"], baseRarity: "Common", weight: 3 },
+      { id: "peated", category: "core", namePattern: "Peated", frequency: "core", age: 12, ageStated: true, proofRange: [80, 92], modifierPool: ["Peated", "Heavily Peated"], baseRarity: "Common", weight: 3 },
+      { id: "limited_release", category: "special", namePattern: "Distiller's Edition", frequency: "limited", ageRange: [18, 30], ageStated: true, proofRange: [80, 92], modifiers: [], baseRarity: "Rare", weight: 1, hasStandoutYears: true },
+      { id: "ultra_rare", category: "special", namePattern: "{age} Year Vintage", frequency: "once", ageRange: [40, 65], ageStated: true, proofRange: [80, 86], modifiers: [], baseRarity: "Unicorn", weight: 0.2 },
+    ],
+  },
+  Irish: {
+    brandAgeDistribution: { young: 0.05, established: 0.15, legacy: 0.80 },
+    catalogSize: { young: [2, 4], established: [3, 8], legacy: [5, 10] },
+    coreMax: { young: 2, established: 3, legacy: 5 },
+    whiskyTypes: ["Irish Whiskey"],
+    multiTypeChance: 0,
+    proofRange: { core: [80, 92], caskStrength: [112, 124] },
+    ageRules: {
+      coreAge: 12,
+      coreAgeStated: true,
+      specialAgeRange: [15, 30],
+      ageTiers: [
+        { min: 12, rarity: "Common" },
+        { min: 15, rarity: "Uncommon" },
+        { min: 18, rarity: "Uncommon" },
+        { min: 21, rarity: "Rare" },
+        { min: 25, rarity: "Rare" },
+        { min: 30, rarity: "Epic" },
+        { min: 35, rarity: "Legendary" },
+      ],
+    },
+    availableModifiers: ["Single Pot Still", "Triple Distilled", "Sherry Finish", "Port Finish", "Rum Cask Finish", "Stout Cask Finish"],
+    productTemplates: [
+      { id: "core_12", category: "core", namePattern: "12 Year", frequency: "core", age: 12, ageStated: true, proofRange: [80, 92], modifiers: [], baseRarity: "Common", weight: 10 },
+      { id: "core_sps", category: "core", namePattern: "Single Pot Still", frequency: "core", age: 12, ageStated: true, proofRange: [80, 92], modifiers: ["Single Pot Still"], baseRarity: "Common", weight: 5 },
+      { id: "core_15", category: "core", namePattern: "15 Year", frequency: "core", age: 15, ageStated: true, proofRange: [80, 92], modifiers: [], baseRarity: "Uncommon", weight: 5 },
+      { id: "core_18", category: "core", namePattern: "18 Year", frequency: "core", age: 18, ageStated: true, proofRange: [80, 92], modifiers: [], baseRarity: "Uncommon", weight: 3 },
+      { id: "age_21", category: "special", namePattern: "21 Year", frequency: "annual", age: 21, ageStated: true, proofRange: [80, 92], modifiers: [], baseRarity: "Rare", weight: 2 },
+      { id: "age_25", category: "special", namePattern: "25 Year", frequency: "limited", age: 25, ageStated: true, proofRange: [80, 86], modifiers: [], baseRarity: "Rare", weight: 1 },
+      { id: "cask_strength", category: "special", namePattern: "Cask Strength", frequency: "core", proofRange: [112, 124], age: 12, ageStated: true, modifiers: ["Cask Strength"], baseRarity: "Uncommon", weight: 2 },
+      { id: "cask_finish", category: "special", namePattern: "{finish}", frequency: "core", age: 12, ageStated: true, proofRange: [80, 92], modifierPool: ["Sherry Finish", "Port Finish", "Rum Cask Finish", "Stout Cask Finish"], baseRarity: "Common", weight: 3 },
+      { id: "limited_release", category: "special", namePattern: "Master Distiller's Reserve", frequency: "limited", ageRange: [18, 25], ageStated: true, proofRange: [80, 92], modifiers: [], baseRarity: "Rare", weight: 1, hasStandoutYears: true },
+    ],
+  },
+  Japanese: {
+    brandAgeDistribution: { young: 0.10, established: 0.45, legacy: 0.45 },
+    catalogSize: { young: [2, 4], established: [3, 8], legacy: [5, 12] },
+    coreMax: { young: 2, established: 4, legacy: 6 },
+    whiskyTypes: ["Japanese Whisky"],
+    multiTypeChance: 0,
+    proofRange: { core: [80, 92], caskStrength: [104, 120] },
+    ageRules: {
+      coreAge: 12,
+      coreAgeStated: true,
+      specialAgeRange: [15, 35],
+      ageTiers: [
+        { min: 12, rarity: "Common" },
+        { min: 15, rarity: "Uncommon" },
+        { min: 18, rarity: "Uncommon" },
+        { min: 21, rarity: "Rare" },
+        { min: 25, rarity: "Rare" },
+        { min: 30, rarity: "Epic" },
+        { min: 35, rarity: "Legendary" },
+        { min: 50, rarity: "Unicorn" },
+      ],
+    },
+    availableModifiers: ["Peated", "Mizunara Oak", "Sakura Wood", "Sherry Cask", "Single Cask"],
+    productTemplates: [
+      { id: "core_12", category: "core", namePattern: "12 Year", frequency: "core", age: 12, ageStated: true, proofRange: [80, 92], modifiers: [], baseRarity: "Common", weight: 10 },
+      { id: "core_15", category: "core", namePattern: "15 Year", frequency: "core", age: 15, ageStated: true, proofRange: [80, 92], modifiers: [], baseRarity: "Uncommon", weight: 5 },
+      { id: "core_18", category: "core", namePattern: "18 Year", frequency: "core", age: 18, ageStated: true, proofRange: [80, 92], modifiers: [], baseRarity: "Uncommon", weight: 3 },
+      { id: "age_21", category: "special", namePattern: "21 Year", frequency: "annual", age: 21, ageStated: true, proofRange: [80, 92], modifiers: [], baseRarity: "Rare", weight: 2 },
+      { id: "age_25", category: "special", namePattern: "25 Year", frequency: "limited", age: 25, ageStated: true, proofRange: [80, 86], modifiers: [], baseRarity: "Rare", weight: 1 },
+      { id: "age_30", category: "special", namePattern: "30 Year", frequency: "limited", age: 30, ageStated: true, proofRange: [80, 86], modifiers: [], baseRarity: "Epic", weight: 1 },
+      { id: "cask_strength", category: "special", namePattern: "Cask Strength", frequency: "core", proofRange: [104, 120], age: 12, ageStated: true, modifiers: ["Cask Strength"], baseRarity: "Uncommon", weight: 2 },
+      { id: "mizunara", category: "special", namePattern: "Mizunara Oak", frequency: "annual", age: 18, ageStated: true, proofRange: [80, 92], modifiers: ["Mizunara Oak"], baseRarity: "Rare", weight: 2 },
+      { id: "sakura", category: "special", namePattern: "Sakura Wood", frequency: "annual", age: 12, ageStated: true, proofRange: [80, 92], modifiers: ["Sakura Wood"], baseRarity: "Uncommon", weight: 2 },
+      { id: "limited_release", category: "special", namePattern: "Master's Select", frequency: "limited", ageRange: [21, 35], ageStated: true, proofRange: [80, 86], modifiers: [], baseRarity: "Rare", weight: 1, hasStandoutYears: true },
+      { id: "ultra_rare", category: "special", namePattern: "{age} Year Vintage", frequency: "once", ageRange: [40, 55], ageStated: true, proofRange: [80, 86], modifiers: [], baseRarity: "Unicorn", weight: 0.2 },
+    ],
+  },
+};
+
+// ============================================================================
+// RARITY DERIVATION — Pure function, easy to modify
+// ============================================================================
+const RARITY_ORDER = ["Common", "Uncommon", "Rare", "Epic", "Legendary", "Unicorn"];
+
+function deriveRarity(baseRarity, product, releaseYear, brand) {
+  const currentYear = 2026;
+  const yearDistance = currentYear - releaseYear;
+  let rarity = baseRarity;
+
+  // If baseRarity is "auto_age", derive from age tiers in region config
+  if (rarity === "auto_age") {
+    const regionConfig = REGION_CONFIG[brand.region];
+    const age = product.age || (product.ageRange ? product.ageRange[0] : 4);
+    rarity = "Common";
+    if (regionConfig?.ageRules?.ageTiers) {
+      for (const tier of regionConfig.ageRules.ageTiers) {
+        if (age >= tier.min) rarity = tier.rarity;
+      }
+    }
+  }
+
+  let rarityIdx = RARITY_ORDER.indexOf(rarity);
+  if (rarityIdx < 0) rarityIdx = 0;
+
+  // Year distance bumps for core/annual products
+  if (product.frequency === "core") {
+    if (yearDistance >= 60) rarityIdx = Math.max(rarityIdx, 5); // Unicorn
+    else if (yearDistance >= 40) rarityIdx = Math.max(rarityIdx, 4); // Legendary
+    else if (yearDistance >= 20) rarityIdx = Math.max(rarityIdx, 3); // Epic... wait, spec says 20+ = Rare
+    // Correcting to match spec:
+    // 10-20yr old core = Uncommon bump
+    // 20-40yr old core = Rare bump
+    // 40-60yr old core = Epic bump
+    // 60+ = Unicorn
+    if (yearDistance >= 60) rarityIdx = Math.max(rarityIdx, 5);
+    else if (yearDistance >= 40) rarityIdx = Math.max(rarityIdx, 4);
+    else if (yearDistance >= 20) rarityIdx = Math.max(rarityIdx, 2);
+    else if (yearDistance >= 10) rarityIdx = Math.max(rarityIdx, 1);
+  } else if (product.frequency === "annual") {
+    // Annual releases age faster in rarity
+    if (yearDistance >= 30) rarityIdx = Math.max(rarityIdx, 4);
+    else if (yearDistance >= 15) rarityIdx = Math.max(rarityIdx, 3);
+    else if (yearDistance >= 8) rarityIdx = Math.max(rarityIdx, 2);
+  } else if (product.frequency === "limited" || product.frequency === "once") {
+    // Limited releases start at least Rare and scale up fast
+    rarityIdx = Math.max(rarityIdx, 2);
+    if (yearDistance >= 15) rarityIdx = Math.max(rarityIdx, 4);
+    else if (yearDistance >= 8) rarityIdx = Math.max(rarityIdx, 3);
+  }
+
+  // Standout vintage years get a tier bump
+  if (product.standoutYears?.includes(releaseYear)) {
+    rarityIdx = Math.min(rarityIdx + 1, 5);
+  }
+
+  // Defunct brand bump
+  if (brand.defunct && brand.defunct <= currentYear) {
+    rarityIdx = Math.min(rarityIdx + 1, 5);
+  }
+
+  return RARITY_ORDER[Math.min(rarityIdx, 5)];
+}
+
+// ============================================================================
+// VALUE CALCULATION — Derived from rarity, age, proof, modifiers
+// ============================================================================
+const RARITY_VALUE_MULTIPLIERS = { Common: 1, Uncommon: 1.8, Rare: 3.5, Epic: 7, Legendary: 18, Unicorn: 45 };
+
+function calculateBottleValue(bottle) {
+  let v = 15 + (bottle.age || 4) * 5 + ((bottle.proof || 80) - 80) * 0.3;
+  v *= RARITY_VALUE_MULTIPLIERS[bottle.rarity] || 1;
+  if (bottle.modifiers?.length > 0) v *= 1 + bottle.modifiers.length * 0.15;
+  if (bottle.modifiers?.includes("Cask Strength")) v *= 1.2;
+  if (bottle.modifiers?.includes("Single Barrel")) v *= 1.2;
+  if (bottle.modifiers?.includes("Bottled-in-Bond")) v *= 1.1;
+  if (bottle.modifiers?.includes("Mizunara Oak")) v *= 1.3;
+  if (bottle.modifiers?.some(m => m.startsWith("Finished in") || m.endsWith("Finish") || m.endsWith("Cask"))) v *= 1.15;
+  return Math.round(v);
+}
+
+// ============================================================================
+// BRAND HISTORY GENERATION
+// ============================================================================
+function generateBrandHistory(rng, brandName, region) {
+  const config = REGION_CONFIG[region];
+  if (!config) return null;
+
+  const currentYear = 2026;
+
+  // Determine brand age category
+  const ageRoll = rng();
+  const { young, established } = config.brandAgeDistribution;
+  let ageCategory;
+  if (ageRoll < young) ageCategory = "young";
+  else if (ageRoll < young + established) ageCategory = "established";
+  else ageCategory = "legacy";
+
+  // Founded year
+  let founded;
+  if (ageCategory === "young") founded = currentYear - 2 - Math.floor(rng() * 13); // 2-15 years ago
+  else if (ageCategory === "established") founded = currentYear - 16 - Math.floor(rng() * 34); // 16-50 years ago
+  else founded = currentYear - 51 - Math.floor(rng() * 85); // 51-136 years ago (as early as 1890)
+
+  // Defunct? Small chance for established/legacy
+  let defunct = null;
+  if (ageCategory !== "young" && rng() < 0.12) {
+    defunct = founded + 20 + Math.floor(rng() * (currentYear - founded - 20));
+    defunct = Math.min(defunct, currentYear - 3); // closed at least 3 years ago
+  }
+
+  const operatingEnd = defunct || currentYear;
+
+  // Determine whiskey types for this brand
+  const types = [config.whiskyTypes[Math.floor(rng() * config.whiskyTypes.length)]];
+  if (config.whiskyTypes.length > 1 && rng() < config.multiTypeChance) {
+    const secondType = config.whiskyTypes.find(t => t !== types[0]);
+    if (secondType) types.push(secondType);
+  }
+
+  // Generate mashbill per type (fixed for the brand's lifetime)
+  const mashbills = {};
+  for (const typeName of types) {
+    const typeDef = WHISKEY_TYPES[typeName];
+    if (!typeDef) continue;
+    const primaryPct = typeDef.mashbill.primary.min + Math.floor(rng() * (typeDef.mashbill.primary.max - typeDef.mashbill.primary.min + 1));
+    let remaining = 100 - primaryPct;
+    const mashbill = { [typeDef.mashbill.primary.grain]: primaryPct };
+    const secondaryGrains = [...(typeDef.mashbill.secondary || [])];
+    for (let i = 0; i < secondaryGrains.length && remaining > 0; i++) {
+      const pct = i === secondaryGrains.length - 1 ? remaining : Math.floor(rng() * (remaining + 1));
+      if (pct > 0) mashbill[secondaryGrains[i]] = pct;
+      remaining -= pct;
+    }
+    mashbills[typeName] = mashbill;
+  }
+
+  // Build product catalog
+  const [catalogMin, catalogMax] = config.catalogSize[ageCategory];
+  const targetProducts = catalogMin + Math.floor(rng() * (catalogMax - catalogMin + 1));
+  const coreMax = config.coreMax[ageCategory];
+
+  const catalog = [];
+  let coreCount = 0;
+
+  // Sort templates by weight for weighted selection
+  const templates = config.productTemplates;
+
+  // First, add core products
+  const coreTemplates = templates.filter(t => t.category === "core");
+  const shuffledCore = [...coreTemplates].sort(() => rng() - 0.5);
+  for (const tmpl of shuffledCore) {
+    if (coreCount >= coreMax || catalog.length >= targetProducts) break;
+
+    // Pick which type this product is for
+    const productType = types[Math.floor(rng() * types.length)];
+
+    const product = buildProduct(tmpl, productType, rng, founded, operatingEnd, mashbills[productType], config);
+    if (product) {
+      catalog.push(product);
+      coreCount++;
+    }
+  }
+
+  // Then add special products
+  const specialTemplates = templates.filter(t => t.category === "special");
+  const shuffledSpecial = [...specialTemplates].sort(() => rng() - 0.5);
+  for (const tmpl of shuffledSpecial) {
+    if (catalog.length >= targetProducts) break;
+    if (rng() > tmpl.weight / 10) continue; // weight-based chance of inclusion
+
+    const productType = types[Math.floor(rng() * types.length)];
+
+    const product = buildProduct(tmpl, productType, rng, founded, operatingEnd, mashbills[productType], config);
+    if (product) {
+      catalog.push(product);
+    }
+  }
+
+  // Ensure active (non-defunct) brands have at least one currently-produced core product
+  if (!defunct) {
+    const currentYear = 2026;
+    const hasCurrentCore = catalog.some(p => p.category === "core" && (!p.discontinued || p.discontinued >= currentYear));
+    if (!hasCurrentCore && catalog.length > 0) {
+      // Find the first core product and un-discontinue it
+      const coreProduct = catalog.find(p => p.category === "core");
+      if (coreProduct) {
+        coreProduct.discontinued = null;
+      } else {
+        // No core products at all — un-discontinue the first product
+        catalog[0].discontinued = null;
+      }
+    }
+  }
+
+  return {
+    name: brandName,
+    region,
+    founded,
+    defunct,
+    ageCategory,
+    types,
+    mashbills,
+    catalog,
+  };
+}
+
+function buildProduct(template, typeName, rng, brandFounded, brandEnd, mashbill, regionConfig) {
+  const currentYear = 2026;
+
+  // When was this product introduced?
+  let introduced;
+  if (template.frequency === "core") {
+    // Core products introduced early in brand's life
+    introduced = brandFounded + Math.floor(rng() * Math.min(20, brandEnd - brandFounded));
+  } else if (template.frequency === "once") {
+    // One-time releases happen somewhere in the brand's later years
+    const lateStart = brandFounded + Math.floor((brandEnd - brandFounded) * 0.5);
+    introduced = lateStart + Math.floor(rng() * (brandEnd - lateStart));
+  } else {
+    // Annual/limited releases introduced later
+    const midpoint = brandFounded + Math.floor((brandEnd - brandFounded) * 0.3);
+    introduced = midpoint + Math.floor(rng() * (brandEnd - midpoint));
+  }
+  introduced = Math.max(brandFounded, Math.min(introduced, brandEnd));
+
+  // Discontinued?
+  let discontinued = null;
+  if (template.frequency !== "once" && rng() < 0.15 && introduced < brandEnd - 5) {
+    discontinued = introduced + 5 + Math.floor(rng() * (brandEnd - introduced - 5));
+  }
+  if (template.frequency === "once") {
+    discontinued = introduced; // one-time = one year only
+  }
+
+  const productionEnd = discontinued || brandEnd;
+
+  // Proof
+  let proof;
+  if (template.proof) {
+    proof = template.proof;
+  } else if (template.proofRange) {
+    proof = template.proofRange[0] + Math.floor(rng() * (template.proofRange[1] - template.proofRange[0] + 1));
+  } else {
+    proof = 80;
+  }
+
+  // Age
+  let age;
+  if (template.age) {
+    age = template.age;
+  } else if (template.ageRange) {
+    age = template.ageRange[0] + Math.floor(rng() * (template.ageRange[1] - template.ageRange[0] + 1));
+  } else {
+    age = regionConfig.ageRules.coreAge;
+  }
+
+  // Modifiers
+  let modifiers = [...(template.modifiers || [])];
+  if (template.modifierPool) {
+    const pick = template.modifierPool[Math.floor(rng() * template.modifierPool.length)];
+    modifiers.push(pick);
+  }
+
+  // Proof varies per batch?
+  const proofVaries = template.proofRange && (modifiers.includes("Cask Strength") || modifiers.includes("Single Barrel"));
+
+  // Standout years
+  let standoutYears = null;
+  if (template.hasStandoutYears) {
+    standoutYears = [];
+    const numStandouts = 1 + Math.floor(rng() * 3);
+    for (let i = 0; i < numStandouts; i++) {
+      const y = introduced + Math.floor(rng() * (productionEnd - introduced + 1));
+      if (!standoutYears.includes(y)) standoutYears.push(y);
+    }
+  }
+
+  // Build name from pattern
+  let productName = template.namePattern;
+  productName = productName.replace("{type}", typeName);
+  productName = productName.replace("{age}", String(age));
+  // For BiB with age > 4, prepend age statement to name
+  if (modifiers.includes("Bottled-in-Bond") && age > 4 && !productName.includes(String(age))) {
+    productName = `${age} Year ${productName}`;
+  }
+  if (template.modifierPool && modifiers.length > 0) {
+    const finishName = modifiers[modifiers.length - 1].replace("Finished in ", "").replace(" Barrels", "").replace(" Finish", "");
+    productName = productName.replace("{finish}", finishName);
+  }
+  // Append whiskey type if not already in the name
+  if (!productName.includes(typeName)) {
+    // Use friendly short names for display
+    const typeDisplayName = { "Single Malt Scotch": "Single Malt Scotch Whisky", "Blended Scotch": "Blended Scotch Whisky", "Irish Whiskey": "Irish Whiskey", "Japanese Whisky": "Japanese Whisky", "Bourbon": "Bourbon", "Rye": "Rye" };
+    productName = `${productName} ${typeDisplayName[typeName] || typeName}`;
+  }
+
+  return {
+    id: `${template.id}_${typeName}_${introduced}`,
+    templateId: template.id,
+    name: productName,
+    typeName,
+    category: template.category,
+    frequency: template.frequency,
+    introduced,
+    discontinued,
+    proof,
+    proofVaries: proofVaries || false,
+    proofRange: template.proofRange || null,
+    age,
+    ageStated: template.ageStated !== undefined ? template.ageStated : false,
+    ageRange: template.ageRange || null,
+    ageVaries: template.ageVaries || false,
+    mashbill: mashbill || {},
+    modifiers,
+    baseRarity: template.baseRarity,
+    standoutYears,
+  };
+}
+
+
 class WhiskeyEngine {
   constructor(gameSeed = Date.now()) {
-    this.gameSeed = gameSeed; this.brands = {}; this.bottleCache = {}; this.brandNames = []; this._initBrands();
+    this.gameSeed = gameSeed;
+    this.brands = {};
+    this.brandNames = [];
+    this.bottleCache = {};
+    this._initBrands();
   }
+
   _initBrands() {
     const rng = seededRandom(this.gameSeed);
     const numBrands = 16 + Math.floor(rng() * 10);
-    const usedNames = new Set();
-    // Assign regions first, then generate region-appropriate names
+
+    // Assign regions first with guaranteed minimums
     const allRegions = ["American", "Canadian", "Scottish", "Irish", "Japanese"];
-    const minPerRegion = { American: Math.max(2, Math.ceil(numBrands * 0.25)), Canadian: 1, Scottish: Math.max(1, Math.ceil(numBrands * 0.15)), Irish: 1, Japanese: 1 };
+    const minPerRegion = { American: Math.max(3, Math.ceil(numBrands * 0.25)), Canadian: 1, Scottish: Math.max(2, Math.ceil(numBrands * 0.15)), Irish: 1, Japanese: 1 };
     const regionSlots = [];
     for (const reg of allRegions) { for (let j = 0; j < minPerRegion[reg]; j++) regionSlots.push(reg); }
     const regionWeights = [["American", 0.30], ["Canadian", 0.10], ["Scottish", 0.25], ["Irish", 0.15], ["Japanese", 0.20]];
@@ -407,17 +904,29 @@ class WhiskeyEngine {
       for (const [reg, w] of regionWeights) { roll -= w; if (roll <= 0) { pick = reg; break; } }
       regionSlots.push(pick);
     }
-    // Shuffle
     for (let i = regionSlots.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [regionSlots[i], regionSlots[j]] = [regionSlots[j], regionSlots[i]]; }
-    // Generate region-appropriate names
+
+    const usedNames = new Set();
     for (let i = 0; i < regionSlots.length; i++) {
       const region = regionSlots[i];
       let name, attempts = 0;
       do { name = generateBrandName(rng, region); attempts++; } while (usedNames.has(name) && attempts < 50);
       if (usedNames.has(name)) continue;
       usedNames.add(name);
+
+      // Generate brand history with catalog
+      const history = generateBrandHistory(rng, name, region);
+      if (!history) continue;
+
       this.brands[name] = {
-        region, types: {},
+        region,
+        founded: history.founded,
+        defunct: history.defunct,
+        ageCategory: history.ageCategory,
+        types: history.types,
+        mashbills: history.mashbills,
+        catalog: history.catalog,
+        // Visual properties
         bottleShapeIdx: Math.floor(rng() * BOTTLE_SHAPES.length),
         bottleColor: BOTTLE_COLORS[Math.floor(rng() * BOTTLE_COLORS.length)],
         capColor: CAP_COLORS[Math.floor(rng() * CAP_COLORS.length)],
@@ -427,146 +936,194 @@ class WhiskeyEngine {
       this.brandNames.push(name);
     }
   }
-  _getBrandRng(brandName, extra = "") { return seededRandom(hashString(brandName + extra + this.gameSeed)); }
-  _generateMashbill(typeDef, rng) {
-    const primaryPct = typeDef.mashbill.primary.min + Math.floor(rng() * (typeDef.mashbill.primary.max - typeDef.mashbill.primary.min + 1));
-    let remaining = 100 - primaryPct;
-    const secondaryGrains = [...typeDef.mashbill.secondary];
-    const mashbill = { [typeDef.mashbill.primary.grain]: primaryPct };
-    for (let i = 0; i < secondaryGrains.length; i++) {
-      if (i === secondaryGrains.length - 1) { if (remaining > 0) mashbill[secondaryGrains[i]] = remaining; }
-      else { const portion = Math.floor(rng() * (remaining + 1)); if (portion > 0) mashbill[secondaryGrains[i]] = portion; remaining -= portion; }
-    }
-    return mashbill;
-  }
-  _getOrCreateBrandType(brandName, typeName) {
-    const brand = this.brands[brandName]; if (!brand) return null;
-    if (brand.types[typeName]) return brand.types[typeName];
-    const typeDef = WHISKEY_TYPES[typeName]; if (!typeDef || !typeDef.regionTags.includes(brand.region)) return null;
-    brand.types[typeName] = { mashbill: this._generateMashbill(typeDef, this._getBrandRng(brandName, typeName)) };
-    return brand.types[typeName];
-  }
-  _selectModifiers(typeDef, proof, age, rng) {
-    const modifiers = [];
-    const available = typeDef.modifiers.filter(m => {
-      if (m.requirements.minAge && age < m.requirements.minAge) return false;
-      if (m.requirements.minProof && proof < m.requirements.minProof) return false;
-      // Don't filter by exactProof here — BiB will force proof after selection
-      if (m.requirements.specialMashbill) return false; return true;
-    });
-    if (available.length === 0) return modifiers;
-    const first = available[Math.floor(rng() * available.length)]; modifiers.push(first.name);
-    if (first.combinable && rng() > 0.7) {
-      const second = available.filter(m => m.combinable && m.name !== first.name);
-      if (second.length > 0) modifiers.push(second[Math.floor(rng() * second.length)].name);
-    }
-    return modifiers;
-  }
-  _selectRarity(age, year, rng, tierLevel = 1, rep = 0) {
-    // Rarity influenced by age, release year, and store progression
-    const currentYear = 2026;
-    const yearsOld = currentYear - year; // how long ago it was released
-    
-    // Base score from age and release year
-    let rarityScore = 0;
-    rarityScore += Math.min(age, 20) * 2; // age contributes up to 40 points
-    rarityScore += Math.min(yearsOld, 30) * 1.5; // older release years add up to 45 points
-    rarityScore += rng() * 20; // random variance
-    
-    // Tier/rep gating: cap the max achievable rarity at lower tiers
-    const tierCap = [30, 50, 70, 85, 95, 120][Math.min(tierLevel - 1, 5)]; // tier 1 caps low
-    const repBonus = Math.min(rep / 100, 10); // small rep bonus
-    rarityScore = Math.min(rarityScore, tierCap + repBonus);
-    
-    // Map score to rarity
-    if (rarityScore >= 90) return "Unicorn";
-    if (rarityScore >= 75) return "Legendary";
-    if (rarityScore >= 55) return "Epic";
-    if (rarityScore >= 38) return "Rare";
-    if (rarityScore >= 22) return "Uncommon";
-    return "Common";
-  }
-  _calculateBaseValue(age, proof, rarity, modifiers, yearKnown = true) {
-    // Base value from characteristics
-    let v = 15 + age * 5 + (proof - 80) * 0.3;
-    // Rarity multiplier
-    v *= ({ Common: 1, Uncommon: 1.8, Rare: 3.5, Epic: 7, Legendary: 18, Unicorn: 45 })[rarity] || 1;
-    // Modifier bonuses
-    if (modifiers.length > 0) v *= 1 + modifiers.length * 0.15;
-    if (modifiers.includes("Barrel Proof")) v *= 1.25;
-    if (modifiers.includes("Bottled-in-Bond")) v *= 1.1;
-    if (modifiers.includes("Single Barrel")) v *= 1.2;
-    if (modifiers.some(m => m.startsWith("Finished in"))) v *= 1.15;
-    // Unknown year penalty: bottles with unknown year are worth less on the surface
-    if (!yearKnown) v *= 0.55;
-    return Math.round(v);
-  }
+
   generateBottle(tierLevel = 1, rep = 0) {
     const rng = seededRandom(Date.now() + Math.random() * 100000);
-    const brandName = this.brandNames[Math.floor(rng() * this.brandNames.length)];
-    const brand = this.brands[brandName];
-    const compatibleTypes = Object.keys(WHISKEY_TYPES).filter(t => WHISKEY_TYPES[t].regionTags.includes(brand.region));
-    const typeName = compatibleTypes[Math.floor(rng() * compatibleTypes.length)];
-    const typeDef = WHISKEY_TYPES[typeName];
-    this._getOrCreateBrandType(brandName, typeName);
-    const mashbill = { ...brand.types[typeName].mashbill };
-    
-    // Age is influenced by tier: lower tiers skew toward younger bottles
-    const maxAgeForTier = Math.min(typeDef.age.max, typeDef.age.min + Math.floor((typeDef.age.max - typeDef.age.min) * (0.3 + tierLevel * 0.12)));
-    const age = typeDef.age.min + Math.floor(rng() * (maxAgeForTier - typeDef.age.min + 1));
-    const year = 2026 - age - Math.floor(rng() * 5);
-    
-    // Proof: use a bell curve biased toward standard proofs, but allow full range at any tier
-    // Most bottles cluster 80-110, but outliers up to max are always possible
-    const proofRange = typeDef.proof.max - typeDef.proof.min;
-    const proofCenter = typeDef.proof.min + Math.floor(proofRange * (0.25 + tierLevel * 0.08));
-    // Two random rolls averaged = bell curve, then allow one "lucky" high roll
-    const roll1 = rng(), roll2 = rng(), proofRoll = Math.max(roll1, rng() > (0.85 - tierLevel * 0.05) ? roll2 : roll1);
-    let proof = Math.floor(typeDef.proof.min + proofRoll * proofRange);
-    proof = Math.max(typeDef.proof.min, Math.min(typeDef.proof.max, proof));
-    
-    // Modifiers: chance scales with tier, always some baseline chance
-    const modifierChance = 0.25 + tierLevel * 0.08; // tier 1: ~33%, tier 6: ~73%
-    let modifiers = rng() < modifierChance ? this._selectModifiers(typeDef, proof, age, rng) : [];
-    if (modifiers.includes("Bottled-in-Bond")) proof = 100;
-    
-    const modKey = modifiers.length > 0 ? modifiers.sort().join("|") : "base";
-    const cacheKey = `${brandName}|${typeName}|${year}|${modKey}`;
-    
-    // Rarity based on age, year, tier
-    const rarity = this._selectRarity(age, year, rng, tierLevel, rep);
-    // True value (with year known)
-    const trueValue = this._calculateBaseValue(age, proof, rarity, modifiers, true);
-    
-    const isSpecial = rng() > 0.95;
-    let displayMashbill = mashbill;
-    if (isSpecial) {
-      displayMashbill = this._generateMashbill(typeDef, seededRandom(hashString(cacheKey + "special")));
-      if (JSON.stringify(displayMashbill) !== JSON.stringify(mashbill) && !modifiers.some(m => !WHISKEY_TYPES[typeName].modifiers.find(md => md.name === m)?.combinable))
-        modifiers = ["Special Release"];
+    const currentYear = 2026;
+
+    // ---- STEP 1: Roll the tier table to determine target rarity ----
+    const TIER_RARITY_WEIGHTS = {
+      //          Common    Uncommon  Rare      Epic      Legendary Unicorn
+      1: [0.7815, 0.9714, 0.9984, 0.99940, 0.99990, 1.0],
+      2: [0.6503, 0.8304, 0.9805, 0.99850, 0.99950, 1.0],
+      3: [0.5000, 0.6800, 0.8800, 0.96000, 0.99500, 1.0],
+      4: [0.3500, 0.5500, 0.8000, 0.93000, 0.99000, 1.0],
+      5: [0.2250, 0.4050, 0.7050, 0.88500, 0.98500, 1.0],
+      6: [0.1550, 0.3050, 0.6550, 0.90500, 0.98000, 1.0],
+    };
+    const rarityWeights = TIER_RARITY_WEIGHTS[Math.min(tierLevel, 6)] || TIER_RARITY_WEIGHTS[6];
+    const rarityRoll = rng();
+    let targetRarityIdx = 0;
+    for (let ri = 0; ri < rarityWeights.length; ri++) {
+      if (rarityRoll < rarityWeights[ri]) { targetRarityIdx = ri; break; }
     }
-    const finishMods = modifiers.filter(m => m.startsWith("Finished in"));
-    const otherMods = modifiers.filter(m => !m.startsWith("Finished in"));
-    // Age statement: 3-6 is "Unstated", >6 gets added to name, <=2 shown on card only
-    const ageStated = age > 6;
-    const ageHidden = age >= 3 && age <= 6;
-    const ageDisplay = ageHidden ? "Unstated" : `${age}yr`;
-    const ageSuffix = ageStated ? ` ${age} Year` : "";
+    const targetRarity = RARITY_ORDER[targetRarityIdx];
+
+    // ---- STEP 2: Find a bottle (brand + product + year) that matches target rarity ----
+    // Try multiple attempts; if we can't match exactly, fall to closest lower rarity
+    let bestMatch = null;
+    let bestMatchDist = 999;
+    const maxAttempts = 20;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const brandName = this.brandNames[Math.floor(rng() * this.brandNames.length)];
+      const brand = this.brands[brandName];
+      if (!brand || !brand.catalog || brand.catalog.length === 0) continue;
+
+      // Filter products by tier
+      const availableProducts = brand.catalog.filter(p => {
+        if (p.introduced > currentYear) return false;
+        return true;
+      });
+      if (availableProducts.length === 0) continue;
+
+      // Pick a product (weighted — core still more common in general selection)
+      const weights = availableProducts.map(p => {
+        if (p.frequency === "core") return 8;
+        if (p.frequency === "annual") return 4;
+        if (p.frequency === "limited") return 2;
+        if (p.frequency === "once") return 1;
+        return 5;
+      });
+      const totalWeight = weights.reduce((s, w) => s + w, 0);
+      let roll = rng() * totalWeight;
+      let product = availableProducts[0];
+      for (let i = 0; i < availableProducts.length; i++) {
+        roll -= weights[i];
+        if (roll <= 0) { product = availableProducts[i]; break; }
+      }
+
+      // Pick a release year
+      const prodStart = product.introduced;
+      const prodEnd = product.discontinued || (brand.defunct || currentYear);
+      let releaseYear;
+      if (product.frequency === "once") {
+        releaseYear = prodStart;
+      } else {
+        const yearSpan = prodEnd - prodStart;
+        if (yearSpan <= 0) {
+          releaseYear = prodStart;
+        } else {
+          const recencyBias = tierLevel <= 1 ? 8.0 : tierLevel <= 2 ? 5.0 : tierLevel <= 3 ? 3.0 : tierLevel <= 4 ? 1.8 : tierLevel <= 5 ? 1.0 : 0.6;
+          const yearRoll = 1 - Math.pow(rng(), recencyBias);
+          releaseYear = prodStart + Math.floor(yearRoll * yearSpan);
+        }
+      }
+      releaseYear = Math.max(prodStart, Math.min(releaseYear, prodEnd));
+
+      // Derive rarity for this combination
+      const derivedRarity = deriveRarity(product.baseRarity, product, releaseYear, brand);
+      const derivedIdx = RARITY_ORDER.indexOf(derivedRarity);
+
+      // How close is this to our target?
+      const dist = targetRarityIdx - derivedIdx; // positive = we need higher, negative = derived is too high
+
+      if (dist === 0) {
+        // Exact match — use this bottle
+        bestMatch = { brandName, brand, product, releaseYear, rarity: targetRarity };
+        break;
+      }
+
+      // Track closest match that is AT or BELOW target (fail downward)
+      if (derivedIdx <= targetRarityIdx) {
+        const gap = targetRarityIdx - derivedIdx;
+        if (gap < bestMatchDist) {
+          bestMatchDist = gap;
+          bestMatch = { brandName, brand, product, releaseYear, rarity: derivedRarity };
+        }
+      }
+    }
+
+    // If no match at or below target found at all, take any match and clamp down
+    if (!bestMatch) {
+      // Last resort: generate any bottle and assign Common
+      const brandName = this.brandNames[Math.floor(rng() * this.brandNames.length)];
+      const brand = this.brands[brandName];
+      if (!brand || !brand.catalog || brand.catalog.length === 0) return null;
+      const coreProducts = brand.catalog.filter(p => p.frequency === "core" && p.introduced <= currentYear);
+      const product = coreProducts.length > 0 ? coreProducts[Math.floor(rng() * coreProducts.length)] : brand.catalog[0];
+      const prodEnd = product.discontinued || (brand.defunct || currentYear);
+      const releaseYear = Math.max(product.introduced, currentYear - 5);
+      bestMatch = { brandName, brand, product, releaseYear: Math.min(releaseYear, prodEnd), rarity: "Common" };
+    }
+
+    // ---- STEP 3: Build the bottle from the matched product + year ----
+    const { brandName, brand, product, releaseYear, rarity } = bestMatch;
+
+    let proof = product.proof;
+    if (product.proofVaries && product.proofRange) {
+      proof = product.proofRange[0] + Math.floor(rng() * (product.proofRange[1] - product.proofRange[0] + 1));
+    }
+
+    let age = product.age;
+    if (product.ageVaries && product.ageRange) {
+      age = product.ageRange[0] + Math.floor(rng() * (product.ageRange[1] - product.ageRange[0] + 1));
+    }
+
+    const ageStated = product.ageStated;
+    const ageDisplay = ageStated ? `${age}yr` : "Unstated";
+
+    const modifiers = [...(product.modifiers || [])];
+    const trueValue = calculateBottleValue({ age, proof, rarity, modifiers });
+
+    const typeName = product.typeName;
+    let productDisplayName = product.name;
+    if (product.ageVaries && product.ageRange && ageStated) {
+      productDisplayName = `${age} Year ${productDisplayName.replace(/\d+ Year /, "")}`;
+    }
+    const baseDisplayName = `${brandName} ${productDisplayName}`;
+    const displayName = `${releaseYear} ${baseDisplayName}`;
+
     const bottle = {
-      id: `b_${Date.now()}_${Math.floor(Math.random()*10000)}`, brandName, typeName, year, age, proof,
-      ageDisplay, ageStated,
-      mashbill: displayMashbill, region: brand.region, modifiers, rarity, trueValue,
+      id: `b_${Date.now()}_${Math.floor(Math.random() * 10000)}`,
+      brandName,
+      typeName,
+      productName: product.name,
+      productId: product.id,
+      year: releaseYear,
+      age,
+      proof,
+      ageDisplay,
+      ageStated,
+      mashbill: product.mashbill || brand.mashbills[typeName] || {},
+      region: brand.region,
+      modifiers,
+      rarity,
+      trueValue,
       value: trueValue,
       yearKnown: true,
-      bottleShapeIdx: brand.bottleShapeIdx, bottleColor: brand.bottleColor, capColor: brand.capColor, labelColor: brand.labelColor, labelAccent: brand.labelAccent,
+      // Visual
+      bottleShapeIdx: brand.bottleShapeIdx,
+      bottleColor: brand.bottleColor,
+      capColor: brand.capColor,
+      labelColor: brand.labelColor,
+      labelAccent: brand.labelAccent,
+      // Display
+      baseDisplayName,
+      displayName,
+      // Catalog reference
+      frequency: product.frequency,
+      standoutYear: product.standoutYears?.includes(releaseYear) || false,
     };
-    bottle.baseDisplayName = `${brandName} ${otherMods.length ? otherMods.join(" ") + " " : ""}${typeName}${finishMods.length ? " " + finishMods.join(" ") : ""}${ageSuffix}`;
-    bottle.displayName = `${year} ${bottle.baseDisplayName}`;
+
     return bottle;
   }
+
+  _calculateBaseValue(age, proof, rarity, modifiers, yearKnown = true) {
+    let v = calculateBottleValue({ age, proof, rarity, modifiers });
+    if (!yearKnown) v = Math.round(v * 0.55);
+    return v;
+  }
+
   getEngineStats() {
-    return { totalBrands: this.brandNames.length, cachedBottles: Object.keys(this.bottleCache).length,
-      brandDetails: Object.entries(this.brands).map(([name, b]) => ({ name, region: b.region, types: Object.keys(b.types) })) };
+    return {
+      totalBrands: this.brandNames.length,
+      cachedBottles: Object.keys(this.bottleCache).length,
+      brandDetails: Object.entries(this.brands).map(([name, b]) => ({
+        name, region: b.region, founded: b.founded, defunct: b.defunct,
+        types: b.types, products: b.catalog?.length || 0,
+      })),
+    };
   }
 }
 
@@ -1278,7 +1835,7 @@ function WhiskeyGame() {
   const [activeTab, setActiveTab] = useState("shop");
   const [filterType, setFilterType] = useState("All");
   const [sortBy, setSortBy] = useState("newest");
-  const [playerSkills, setPlayerSkills] = useState({ yearEstimation: 0, industryKnowledge: 0, peopleReader: 0, salesmanship: 0 });
+  const [playerSkills, setPlayerSkills] = useState({ appraisal: { Bourbon: 0, Rye: 0, Scotch: 0, Irish: 0, Japanese: 0 }, industryKnowledge: 0, peopleReader: 0, salesmanship: 0 });
   const [codex, setCodex] = useState({}); // { brandName: { typeName+mods: { bottles: [{year,proof,age,mashbill}], minYear, maxYear, ... } } }
   const [codexExpandedBrand, setCodexExpandedBrand] = useState(null);
   const [codexExpandedVariant, setCodexExpandedVariant] = useState(null);
@@ -1298,7 +1855,7 @@ function WhiskeyGame() {
     if (save) {
       setActiveSlot(i); setStoreName(save.storeName); setStoreTier(save.storeTier || 1); setInventory(save.inventory);
       setCash(save.cash ?? STARTING_CASH); setReputation(save.reputation ?? 0); setDay(save.day ?? 1); setMissedRent(save.missedRent ?? 0);
-      setPlayerSkills({ yearEstimation: 0, industryKnowledge: 0, peopleReader: 0, salesmanship: 0, ...(save.playerSkills ?? {}) });
+      setPlayerSkills({ appraisal: { Bourbon: 0, Rye: 0, Scotch: 0, Irish: 0, Japanese: 0 }, industryKnowledge: 0, peopleReader: 0, salesmanship: 0, ...(save.playerSkills ?? {}) });
       setCodex(save.codex ?? {});
       setGameOver(false); setDailyLog([]); setShowDaySummary(null); setShowRentDue(null);
       initEngine(save.gameSeed);
@@ -1307,7 +1864,7 @@ function WhiskeyGame() {
       if (save.engineBottleCache) engineRef.current.bottleCache = save.engineBottleCache;
       setActiveTab("shop"); setScreen("game");
     } else {
-      setActiveSlot(i); initEngine(); setInventory([]); setCash(STARTING_CASH); setReputation(0); setDay(1); setMissedRent(0); setGameOver(false); setDailyLog([]); setStoreTier(1); setPlayerSkills({ yearEstimation: 0, industryKnowledge: 0, peopleReader: 0, salesmanship: 0 }); setCodex({}); setScreen("nameStore");
+      setActiveSlot(i); initEngine(); setInventory([]); setCash(STARTING_CASH); setReputation(0); setDay(1); setMissedRent(0); setGameOver(false); setDailyLog([]); setStoreTier(1); setPlayerSkills({ appraisal: { Bourbon: 0, Rye: 0, Scotch: 0, Irish: 0, Japanese: 0 }, industryKnowledge: 0, peopleReader: 0, salesmanship: 0 }); setCodex({}); setScreen("nameStore");
     }
     audio.playSfx("buttonClick");
   }, [saves, initEngine, audio]);
@@ -1315,30 +1872,28 @@ function WhiskeyGame() {
   const handleDeleteSlot = useCallback((i) => { setSaves(p => { const n = [...p]; n[i] = null; return n; }); audio.playSfx("buttonClick"); }, [audio]);
   const handleNameSubmit = useCallback((name) => {
     setStoreName(name);
-    // Seed codex with known brands and their current-year offerings
+    // Seed codex with known brands and their currently-produced products
     if (engineRef.current) {
       const engine = engineRef.current;
       const seedCodex = {};
+      const currentYear = 2026;
       for (const brandName of engine.brandNames) {
         const brand = engine.brands[brandName];
-        seedCodex[brandName] = { __brandKnown: true, __region: brand.region };
-        // Generate a current-year base bottle for each compatible type
-        const compatibleTypes = Object.keys(WHISKEY_TYPES).filter(t => WHISKEY_TYPES[t].regionTags.includes(brand.region));
-        for (const typeName of compatibleTypes) {
-          const rng = seededRandom(hashString(brandName + typeName + engine.gameSeed + "catalog"));
-          engine._getOrCreateBrandType(brandName, typeName);
-          const typeDef = WHISKEY_TYPES[typeName];
-          const mashbill = { ...brand.types[typeName].mashbill };
-          // Current year release = young, standard proof, no modifiers
-          const age = typeDef.age.min + Math.floor(rng() * 3);
-          const proof = typeDef.proof.min + Math.floor(rng() * 20);
-          const variantKey = typeName;
+        seedCodex[brandName] = { __brandKnown: true, __region: brand.region, __founded: brand.founded, __defunct: brand.defunct, __ageCategory: brand.ageCategory, __types: brand.types, __totalProducts: brand.catalog.length };
+        // Add currently produced core and annual products to codex
+        const catalog = brand.catalog || [];
+        for (const product of catalog) {
+          const prodEnd = product.discontinued || (brand.defunct || currentYear);
+          const isCurrentlyProduced = prodEnd >= currentYear && (product.frequency === "core" || product.frequency === "annual");
+          if (!isCurrentlyProduced) continue;
+          const variantKey = product.name;
           seedCodex[brandName][variantKey] = {
-            brandName, typeName, modifiers: [], variantKey,
-            displayName: `${brandName} ${typeName}`,
-            minYear: 2026, maxYear: 2026,
-            lastProof: proof, lastAge: age, lastMashbill: mashbill, region: brand.region,
-            encounters: 0, // 0 = catalog knowledge, not personally encountered
+            brandName, typeName: product.typeName, modifiers: [...(product.modifiers || [])], variantKey,
+            displayName: `${brandName} ${product.name}`,
+            minYear: null, maxYear: null,
+            lastProof: product.proof, lastAge: product.age, lastMashbill: product.mashbill || brand.mashbills[product.typeName] || {},
+            region: brand.region, encounters: 0,
+            frequency: product.frequency, ageStated: product.ageStated,
             bottleShapeIdx: brand.bottleShapeIdx, bottleColor: brand.bottleColor,
             capColor: brand.capColor, labelColor: brand.labelColor, labelAccent: brand.labelAccent,
           };
@@ -1364,15 +1919,103 @@ function WhiskeyGame() {
   // ---- PLAYER SKILLS ----
   const SKILL_TIERS_LABEL = ["None", "Novice", "Apprentice", "Journeyman", "Expert", "Master"];
   const SKILL_COSTS = [0, 200, 800, 2500, 8000, 25000];
-  const YEAR_EST_ACCURACY = [null, 12, 7, 4, 2, 0];
+  // Appraisal costs are lower since there are 5 tracks
+  const APPRAISAL_COSTS = [0, 150, 500, 1500];
+  const APPRAISAL_LABELS = ["Untrained", "Familiar", "Knowledgeable", "Expert"];
 
-  const estimateYear = useCallback((bottle) => {
-    const level = playerSkills.yearEstimation;
-    if (level === 0 || bottle.yearKnown) return null;
-    const accuracy = YEAR_EST_ACCURACY[level];
-    if (accuracy === 0) return { min: bottle.year, max: bottle.year, exact: true };
-    return { min: bottle.year - accuracy, max: Math.min(bottle.year + accuracy, 2026), exact: false };
+  // Map whiskey type names to appraisal skill keys
+  const TYPE_TO_APPRAISAL_KEY = {
+    "Bourbon": "Bourbon", "Rye": "Rye",
+    "Single Malt Scotch": "Scotch", "Blended Scotch": "Scotch",
+    "Irish Whiskey": "Irish", "Japanese Whisky": "Japanese",
+  };
+
+  // ---- INSPECT SYSTEM ----
+  // Inspect state: tracks what's been revealed for the current seller's bottle
+  const [inspectResult, setInspectResult] = useState(null);
+  // { typeRevealed, proofRevealed, modifiersRevealed, yearRevealed, rarityRevealed, mysteryFlag, counterfeitDetected }
+
+  const getAppraisalLevel = useCallback((typeName) => {
+    const key = TYPE_TO_APPRAISAL_KEY[typeName] || "Bourbon";
+    return (playerSkills.appraisal || {})[key] || 0;
   }, [playerSkills]);
+
+  const handleInspect = useCallback((bottle) => {
+    if (!bottle || inspectResult) return; // one-time only
+    const level = getAppraisalLevel(bottle.typeName);
+
+    // Default (level 0): 100% type+proof, 75% modifiers, 5% year, 5% rarity
+    // Level 1: 100% modifiers, 25% year, 25% rarity, 50% "?" on uncommon+, 25% counterfeit
+    // Level 2: 50% year, 50% rarity, 75% "?", 50% counterfeit
+    // Level 3: 100% year, 100% rarity, 90% counterfeit, 10% false "?" on legendary/unicorn
+    const modChance = level >= 1 ? 1.0 : 0.75;
+    const yearChance = [0.05, 0.25, 0.50, 1.0][level];
+    const rarityChance = [0.05, 0.25, 0.50, 1.0][level];
+    const mysteryChance = [0, 0.50, 0.75, 0][level]; // level 3 has special handling
+    const counterfeitChance = [0, 0.25, 0.50, 0.90][level];
+
+    const rng = Math.random;
+    const typeRevealed = true; // always at level 0+
+    const proofRevealed = true; // always at level 0+
+    const modifiersRevealed = rng() < modChance;
+    const yearRevealed = rng() < yearChance;
+    const rarityRevealed = rng() < rarityChance;
+
+    // Mystery flag "?"
+    let mysteryFlag = false;
+    const rarityIdx = RARITY_ORDER.indexOf(bottle.rarity);
+    const isSpecial = rarityIdx >= 1; // Uncommon or higher
+    const isCounterfeit = bottle.isCounterfeit || false; // future counterfeit system
+
+    if (level === 3) {
+      // Expert: at level 3, year and rarity are always revealed
+      // But 10% chance of false "?" on Legendary/Unicorn to create mystery
+      if (rarityIdx >= 4 && rng() < 0.10) mysteryFlag = true;
+      // 90% counterfeit detection
+    } else if (level >= 1) {
+      if ((isSpecial || isCounterfeit) && rng() < mysteryChance) mysteryFlag = true;
+    }
+
+    const counterfeitDetected = isCounterfeit && rng() < counterfeitChance;
+
+    const result = {
+      typeRevealed, proofRevealed, modifiersRevealed, yearRevealed, rarityRevealed,
+      mysteryFlag, counterfeitDetected, inspected: true,
+    };
+    setInspectResult(result);
+    audio.playSfx("buttonClick");
+  }, [inspectResult, getAppraisalLevel, audio]);
+
+  // Helper: determine what info to show on a seller's bottle based on customer knowledge + inspect
+  const getBottleVisibility = useCallback((bottle, customer) => {
+    if (!customer || customer.type !== "seller") {
+      // For inventory/buyer bottles, show everything
+      return { type: true, proof: true, modifiers: true, year: bottle.yearKnown, rarity: true, mysteryFlag: false };
+    }
+    const knowledge = customer.traits?.knowledge || 50;
+    // Low knowledge (<35): just brand name + image initially
+    // Medium knowledge (35-65): type + proof + some modifiers
+    // High knowledge (>65): everything except rarity
+    const base = {
+      type: knowledge >= 20,
+      proof: knowledge >= 20,
+      modifiers: knowledge >= 45,
+      year: knowledge >= 70 && bottle.yearKnown,
+      rarity: false, // never shown by default, only via inspect
+      mysteryFlag: false,
+    };
+    // Overlay inspect results if inspected
+    if (inspectResult?.inspected) {
+      if (inspectResult.typeRevealed) base.type = true;
+      if (inspectResult.proofRevealed) base.proof = true;
+      if (inspectResult.modifiersRevealed) base.modifiers = true;
+      if (inspectResult.yearRevealed && bottle.yearKnown !== false) base.year = true;
+      if (inspectResult.rarityRevealed) base.rarity = true;
+      if (inspectResult.mysteryFlag) base.mysteryFlag = true;
+      if (inspectResult.counterfeitDetected) base.counterfeitDetected = true;
+    }
+    return base;
+  }, [inspectResult]);
 
   // ---- CUSTOMER PROFILE SYSTEM ----
   // Each customer has independent trait axes (0-100) instead of fixed archetypes
@@ -1840,31 +2483,31 @@ function WhiskeyGame() {
   }, [playerSkills]);
 
   // ---- CODEX TRACKING ----
-  const trackBottleInCodex = useCallback((bottle) => {
+  const trackBottleInCodex = useCallback((bottle, knownYear = null) => {
     if (!bottle) return;
     const brand = bottle.brandName;
-    const modKey = bottle.modifiers.length > 0 ? bottle.modifiers.sort().join(" ") + " " : "";
-    const variantKey = `${modKey}${bottle.typeName}`;
+    const variantKey = bottle.productName || `${(bottle.modifiers || []).sort().join(" ")}${bottle.modifiers?.length ? " " : ""}${bottle.typeName}`;
+    // Only record year if explicitly passed as known, or if bottle.yearKnown is true AND knownYear is not explicitly false
+    const yearIsKnown = knownYear === true ? true : knownYear === false ? false : (bottle.yearKnown === true);
     setCodex(prev => {
       const next = { ...prev };
       if (!next[brand]) next[brand] = {};
-      // Preserve brand-level metadata
       if (!next[brand].__brandKnown) next[brand].__brandKnown = true;
       const existing = next[brand][variantKey];
       if (existing) {
-        if (bottle.yearKnown) {
+        if (yearIsKnown) {
           existing.minYear = Math.min(existing.minYear ?? bottle.year, bottle.year);
           existing.maxYear = Math.max(existing.maxYear ?? bottle.year, bottle.year);
         }
-        existing.encounters = (existing.encounters || 1) + 1;
+        existing.encounters = (existing.encounters || 0) + 1;
         existing.lastProof = bottle.proof;
         existing.lastAge = bottle.age;
         existing.lastMashbill = bottle.mashbill;
       } else {
         next[brand][variantKey] = {
-          brandName: brand, typeName: bottle.typeName, modifiers: [...bottle.modifiers], variantKey,
-          displayName: `${brand} ${variantKey}`,
-          minYear: bottle.yearKnown ? bottle.year : null, maxYear: bottle.yearKnown ? bottle.year : null,
+          brandName: brand, typeName: bottle.typeName, modifiers: [...(bottle.modifiers || [])], variantKey,
+          displayName: bottle.baseDisplayName || `${brand} ${variantKey}`,
+          minYear: yearIsKnown ? bottle.year : null, maxYear: yearIsKnown ? bottle.year : null,
           lastProof: bottle.proof, lastAge: bottle.age, lastMashbill: bottle.mashbill, region: bottle.region, encounters: 1,
           bottleShapeIdx: bottle.bottleShapeIdx, bottleColor: bottle.bottleColor, capColor: bottle.capColor, labelColor: bottle.labelColor, labelAccent: bottle.labelAccent,
         };
@@ -1876,8 +2519,7 @@ function WhiskeyGame() {
   const trackPriceInCodex = useCallback((bottle, dealType, price) => {
     if (!bottle) return;
     const brand = bottle.brandName;
-    const modKey = bottle.modifiers.length > 0 ? bottle.modifiers.sort().join(" ") + " " : "";
-    const variantKey = `${modKey}${bottle.typeName}`;
+    const variantKey = bottle.productName || `${(bottle.modifiers || []).sort().join(" ")}${bottle.modifiers?.length ? " " : ""}${bottle.typeName}`;
     const yearKey = bottle.yearKnown ? String(bottle.year) : "unknown";
     setCodex(prev => {
       const next = { ...prev };
@@ -1894,12 +2536,12 @@ function WhiskeyGame() {
 
   const advanceToNextCustomer = useCallback(() => {
     const nextIdx = customerIndex + 1;
-    setNegotiating(false); setNegResult(null); setSelectedSellBottle(null); setPreTacticUsed(null); setMidTacticUsed(null); setTacticResult(null); setShowTacticsMenu(false); setConvoPhase("greeting"); setConvoLog([]); setConvoTurns(0); setUsedConvoOptions([]); setTraitHints([]); setConvoWaiting(false); setTradeMode(false); setTradeBottleId(null); setTradeResult(null); setTradePendingBottle(null);
+    setNegotiating(false); setNegResult(null); setSelectedSellBottle(null); setPreTacticUsed(null); setMidTacticUsed(null); setTacticResult(null); setShowTacticsMenu(false); setConvoPhase("greeting"); setConvoLog([]); setConvoTurns(0); setUsedConvoOptions([]); setTraitHints([]); setConvoWaiting(false); setInspectResult(null); setTradeMode(false); setTradeBottleId(null); setTradeResult(null); setTradePendingBottle(null);
     if (nextIdx < customerQueue.length) {
       const nextCustomer = customerQueue[nextIdx];
       setCustomerIndex(nextIdx);
       setCurrentCustomer(nextCustomer);
-      if (nextCustomer.type === "seller" && nextCustomer.bottle) trackBottleInCodex(nextCustomer.bottle);
+      if (nextCustomer.type === "seller" && nextCustomer.bottle) { const yearVis = (nextCustomer.traits?.knowledge || 0) >= 70 && nextCustomer.bottle.yearKnown; trackBottleInCodex(nextCustomer.bottle, yearVis); }
       audio.playSfx("customerEnter");
     } else {
       setCurrentCustomer(null);
@@ -1987,7 +2629,7 @@ function WhiskeyGame() {
       setShowTacticsMenu(false);
       if (negotiating) {
         setNegResult("walked");
-        setNegHistory(prev => [...prev, { who: "player", amount: null, text: playerText }, { who: "customer", amount: null, text: response }]);
+        setNegHistory(prev => [...prev, { who: "player", amount: null, text: playerText }, { who: "customer", amount: null, text: response, effect: "terrible" }]);
       } else {
         setTimeout(() => { advanceToNextCustomer(); }, 1500);
       }
@@ -2003,7 +2645,7 @@ function WhiskeyGame() {
       const rapportShift = { great: 0.25, good: 0.12, neutral: 0, bad: -0.12, terrible: -0.25 }[effect] || 0;
       setCurrentCustomer(prev => ({ ...prev, acceptBonus: (prev.acceptBonus || 0) + rapportShift }));
       if (negotiating) {
-        setNegHistory(prev => [...prev, { who: "player", amount: null, text: playerText }, { who: "customer", amount: null, text: response }]);
+        setNegHistory(prev => [...prev, { who: "player", amount: null, text: playerText }, { who: "customer", amount: null, text: response, effect }]);
       }
     } else {
       // Price-shift tactics: directly change offer values
@@ -2013,7 +2655,7 @@ function WhiskeyGame() {
         setCurrentCustomer(prev => ({ ...prev, askingPrice: newAsk, minAccept: Math.min(newMin, newAsk) }));
         if (negotiating) {
           setCustomerOffer(newAsk);
-          setNegHistory(prev => [...prev, { who: "player", amount: null, text: playerText }, { who: "customer", amount: newAsk, text: response }]);
+          setNegHistory(prev => [...prev, { who: "player", amount: null, text: playerText }, { who: "customer", amount: newAsk, text: response, effect }]);
         }
       } else {
         const newMax = Math.round(c.maxPay * (mult < 1 ? 1 + (1 - mult) : mult));
@@ -2021,7 +2663,7 @@ function WhiskeyGame() {
         setCurrentCustomer(prev => ({ ...prev, maxPay: newMax, openingOffer: Math.min(newOffer, newMax) }));
         if (negotiating) {
           setCustomerOffer(newOffer);
-          setNegHistory(prev => [...prev, { who: "player", amount: null, text: playerText }, { who: "customer", amount: null, text: response }]);
+          setNegHistory(prev => [...prev, { who: "player", amount: null, text: playerText }, { who: "customer", amount: null, text: response, effect }]);
         }
       }
     }
@@ -2083,18 +2725,41 @@ function WhiskeyGame() {
       const isSeller = inventory.length === 0 ? true : rng() < sellerChance;
       if (isSeller) {
         const bottle = engine.generateBottle(storeTier, reputation);
-        const yearKnownChance = traits.knowledge < 35 ? 0.15 : traits.knowledge < 60 ? 0.55 : 0.85;
+        if (!bottle) continue;
+        // Knowledge affects what the seller knows about their bottle
+        // Low knowledge: they don't even know the year, price near common-tier
+        // High knowledge: they know everything, price near true value
+        const yearKnownChance = traits.knowledge < 35 ? 0.10 : traits.knowledge < 60 ? 0.50 : 0.90;
         const yearKnown = rng() < yearKnownChance;
         bottle.yearKnown = yearKnown;
         if (!yearKnown) { bottle.value = engine._calculateBaseValue(bottle.age, bottle.proof, bottle.rarity, bottle.modifiers, false); bottle.displayName = bottle.baseDisplayName; }
         else { bottle.displayName = `${bottle.year} ${bottle.baseDisplayName}`; }
+        // Knowledge-based pricing
+        // Low knowledge: seller prices as if it's a common bottle (doesn't know rarity)
+        // Medium: has some sense but still undervalues
+        // High: prices near true value
+        // Base "common" value: what someone who knows nothing would price any bottle at
+        const commonValue = 10 + (bottle.age || 4) * 2 + Math.max(0, (bottle.proof || 80) - 80) * 0.2;
+        let effectiveValue;
+        if (traits.knowledge < 35) {
+          // Clueless — prices like it's just another bottle on the shelf
+          const mult = 0.7 + rng() * 0.6; // 70-130% of common value
+          effectiveValue = commonValue * mult;
+        } else if (traits.knowledge < 65) {
+          // Knows a little — prices somewhere between common and half of true value
+          const midBase = commonValue + (bottle.trueValue - commonValue) * (0.15 + rng() * 0.20);
+          effectiveValue = midBase;
+        } else {
+          // Knows what they have — prices at 75-100% of true value
+          const highMult = 0.75 + rng() * 0.25;
+          effectiveValue = bottle.trueValue * highMult;
+        }
         let isHiddenGem = false;
-        if (traits.knowledge < 35 && rng() < 0.18) isHiddenGem = true;
-        const estateMult = event?.type === "estateSale" ? 0.6 + rng() * 0.2 : 1;
-        const gemMult = isHiddenGem ? 0.25 + rng() * 0.25 : 1;
-        const effectiveValue = bottle.value * estateMult * gemMult;
+        if (traits.knowledge < 50 && bottle.trueValue > effectiveValue * 2) isHiddenGem = true;
+        const estateMult = event?.type === "estateSale" ? 0.5 + rng() * 0.2 : 1;
+        effectiveValue *= estateMult;
         const minAccept = Math.round(effectiveValue * (0.35 + flexibility * 0.4 + rng() * 0.2));
-        const askingPrice = Math.max(Math.round(effectiveValue * (0.75 + rng() * 0.35)), Math.round(minAccept * 1.1));
+        const askingPrice = Math.max(Math.round(effectiveValue * (0.75 + rng() * 0.35)), Math.round(minAccept * 1.1), 5);
         queue.push({ type: "seller", name, traits, descriptor, bottle, minAccept, askingPrice, isHiddenGem, disposition: 50, maxRounds, counterLines, walkLine, flexibility });
       } else {
         const validRequests = BUYER_REQUESTS.filter(r => inventory.some(r.filter));
@@ -2310,7 +2975,7 @@ function WhiskeyGame() {
     setCustomerIndex(0);
     const first = queue.length > 0 ? queue[0] : null;
     setCurrentCustomer(first);
-    if (first && first.type === "seller" && first.bottle) trackBottleInCodex(first.bottle);
+    if (first && first.type === "seller" && first.bottle) { const yearVis = (first.traits?.knowledge || 0) >= 70 && first.bottle.yearKnown; trackBottleInCodex(first.bottle, yearVis); }
     setDayStarted(true);
     setSelectedSellBottle(null);
     setNegotiating(false);
@@ -2472,7 +3137,7 @@ function WhiskeyGame() {
     setPreTacticUsed(null);
     setMidTacticUsed(null);
     setTacticResult(null);
-    setConvoPhase("greeting"); setConvoLog([]); setConvoTurns(0); setUsedConvoOptions([]); setTraitHints([]); setConvoWaiting(false); setTradeMode(false); setTradeBottleId(null); setTradeResult(null); setTradePendingBottle(null);
+    setConvoPhase("greeting"); setConvoLog([]); setConvoTurns(0); setUsedConvoOptions([]); setTraitHints([]); setConvoWaiting(false); setInspectResult(null); setTradeMode(false); setTradeBottleId(null); setTradeResult(null); setTradePendingBottle(null);
   }, [day, dailyLog, cash, tierData, missedRent, customerIndex, currentCustomer, customerQueue]);
 
   const closeDaySummary = useCallback(() => { setShowDaySummary(null); }, []);
@@ -2606,12 +3271,12 @@ function WhiskeyGame() {
       {/* GAME */}
       {screen === "game" && engine && (
         <>
-          <div style={{ borderBottom: "2px solid var(--border)", padding: "10px 12px", background: "linear-gradient(180deg, var(--surface) 0%, transparent 100%)" }}>
+          <div style={{ borderBottom: "1px solid var(--border)", padding: "6px 12px", background: "linear-gradient(180deg, var(--surface) 0%, transparent 100%)" }}>
             <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
                 <div>
-                  <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "18px", color: "var(--accent)", margin: 0, letterSpacing: "1px" }}>{storeName}</h1>
-                  <div style={{ fontSize: "9px", color: "var(--text-dim)", letterSpacing: "1px", marginTop: "1px", fontFamily: "monospace" }}>
+                  <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "16px", color: "var(--accent)", margin: 0, letterSpacing: "1px" }}>{storeName}</h1>
+                  <div style={{ fontSize: "8px", color: "var(--text-dim)", letterSpacing: "1px", marginTop: "1px", fontFamily: "monospace" }}>
                     DAY {day} · {STORE_TIERS[storeTier - 1].name.toUpperCase()}
                     {missedRent > 0 && <span style={{ color: "var(--danger)", marginLeft: "6px" }}>OVERDUE ({missedRent}/{MAX_MISSED_RENT})</span>}
                   </div>
@@ -2644,16 +3309,9 @@ function WhiskeyGame() {
             </div>
           </div>
 
-          <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "8px 12px 0" }}>
-            <div style={{ display: "flex", gap: "4px", overflowX: "auto", WebkitOverflowScrolling: "touch", msOverflowStyle: "none", scrollbarWidth: "none", padding: "2px" }}>
-              {["shop", "storefront", "inventory", "skills", "codex"].map(tab => (
-                <button key={tab} onClick={() => { setActiveTab(tab); audio.playSfx("buttonClick"); }}
-                  style={{ padding: "8px 16px", border: "none", borderRadius: "10px 10px 0 0", cursor: "pointer", fontSize: "11px", fontFamily: "'Inter', sans-serif", fontWeight: activeTab === tab ? "600" : "500", letterSpacing: "0.5px", textTransform: "uppercase", background: activeTab === tab ? "var(--bg3)" : "transparent", color: activeTab === tab ? "var(--accent)" : "var(--text-dim)", whiteSpace: "nowrap", flexShrink: 0, borderBottom: activeTab === tab ? "2px solid var(--accent)" : "2px solid transparent" }}>{tab}</button>
-              ))}
-            </div>
-          </div>
+          <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "8px 12px 72px" }}>
 
-          <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "16px 12px", background: "#261f1820", borderRadius: "0 12px 12px 12px", minHeight: "400px" }}>
+            <div style={{ minHeight: "calc(100vh - 140px)" }}>
             {activeTab === "storefront" && (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "20px" }}>
                 <StorefrontSVG storeName={storeName} tier={storeTier} />
@@ -2847,7 +3505,7 @@ function WhiskeyGame() {
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", maxWidth: "460px", margin: "0 auto" }}>
                             {/* Conversation log */}
                             {convoLog.length > 0 && (
-                              <div ref={convoLogRef} style={{ width: "100%", maxHeight: "250px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "8px", padding: "10px", background: "rgba(255,255,255,0.03)", borderRadius: "8px", scrollBehavior: "smooth" }}>
+                              <div ref={convoLogRef} style={{ width: "100%", maxHeight: "180px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "6px", padding: "8px", background: "rgba(255,255,255,0.03)", borderRadius: "8px", scrollBehavior: "smooth" }}>
                                 {convoLog.map((msg, i) => (
                                   <div key={i} style={{ display: "flex", justifyContent: msg.who === "player" ? "flex-end" : "flex-start", animation: "msgFadeIn 0.3s ease-out" }}>
                                     <div style={{ padding: "8px 12px", borderRadius: "10px", maxWidth: "85%", fontSize: "13px", fontFamily: "monospace", lineHeight: 1.4,
@@ -2902,7 +3560,45 @@ function WhiskeyGame() {
                         {/* ---- DEAL PHASE: SELLER ---- */}
                         {convoPhase === "deal" && currentCustomer.type === "seller" && (
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
-                            <BottleCard bottle={currentCustomer.bottle} showRarity={showRarity} yearEstimate={estimateYear(currentCustomer.bottle)} hideValue={true} />
+                            {/* Bottle display with visibility filtering */}
+                            {(() => {
+                              const b = currentCustomer.bottle;
+                              const vis = getBottleVisibility(b, currentCustomer);
+                              // Build a filtered bottle for display
+                              const displayBottle = {
+                                ...b,
+                                typeName: vis.type ? b.typeName : "???",
+                                proof: vis.proof ? b.proof : null,
+                                modifiers: vis.modifiers ? b.modifiers : [],
+                                displayName: vis.year ? b.displayName : (vis.type ? b.baseDisplayName : b.brandName),
+                                baseDisplayName: vis.type ? b.baseDisplayName : b.brandName,
+                                ageDisplay: vis.type ? b.ageDisplay : "???",
+                                yearKnown: vis.year,
+                              };
+                              return (
+                                <div style={{ position: "relative" }}>
+                                  <BottleCard bottle={displayBottle} showRarity={vis.rarity} hideValue={true} />
+                                  {vis.mysteryFlag && (
+                                    <div style={{ position: "absolute", top: "8px", right: "8px", width: "24px", height: "24px", borderRadius: "50%", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px", fontWeight: "bold", color: "var(--bg1)", boxShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>?</div>
+                                  )}
+                                  {vis.counterfeitDetected && (
+                                    <div style={{ position: "absolute", top: "8px", left: "8px", padding: "2px 8px", borderRadius: "6px", background: "var(--danger)", fontSize: "9px", fontWeight: "bold", color: "#fff", letterSpacing: "0.5px" }}>SUSPECT</div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                            {/* Inspect button — one time per bottle */}
+                            {!inspectResult && (
+                              <button onClick={() => handleInspect(currentCustomer.bottle)}
+                                style={{ padding: "10px 20px", background: "var(--surface)", border: "2px solid var(--accent)", borderRadius: "10px", color: "var(--accent)", fontSize: "13px", cursor: "pointer", fontFamily: "'Inter', sans-serif", fontWeight: "600", textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>
+                                Inspect Bottle
+                              </button>
+                            )}
+                            {inspectResult && (
+                              <div style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "'Inter', sans-serif" }}>
+                                Inspected · {getAppraisalLevel(currentCustomer.bottle?.typeName) > 0 ? APPRAISAL_LABELS[getAppraisalLevel(currentCustomer.bottle?.typeName)] : "Untrained"} in {TYPE_TO_APPRAISAL_KEY[currentCustomer.bottle?.typeName] || "this type"}
+                              </div>
+                            )}
                             {/* Codex price intel */}
                             {(() => {
                               const b = currentCustomer.bottle;
@@ -2972,11 +3668,6 @@ function WhiskeyGame() {
                               </div>
                             )}
                             {!shelfFull && cash < 5 && <div style={{ color: "var(--danger)", fontSize: "12px", fontFamily: "monospace", padding: "8px 12px", background: "rgba(255,255,255,0.04)", borderRadius: "6px", border: "1px solid var(--danger)", textAlign: "center" }}>LOW FUNDS — ${cash.toLocaleString()} available.</div>}
-                            {tacticResult && (
-                              <div style={{ fontSize: "13px", color: tacticResult.effect === "great" || tacticResult.effect === "good" ? "var(--success)" : tacticResult.effect === "bad" || tacticResult.effect === "terrible" ? "var(--danger)" : "var(--text-muted)", fontStyle: "italic", textAlign: "center", padding: "8px 12px", background: "rgba(255,255,255,0.04)", borderRadius: "6px" }}>
-                                {tacticResult.text}
-                              </div>
-                            )}
 
                             {!negotiating && !tradeMode && !tradeResult && (
                               <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "center", width: "100%" }}>
@@ -3014,7 +3705,8 @@ function WhiskeyGame() {
                                   {negHistory.map((h, i) => (
                                     <div key={i} style={{ display: "flex", justifyContent: h.who === "player" ? "flex-end" : "flex-start", animation: "msgFadeIn 0.3s ease-out" }}>
                                       <div style={{ padding: "8px 12px", borderRadius: "10px", maxWidth: "85%", fontSize: "12px", fontFamily: "monospace", lineHeight: 1.4,
-                                        background: h.who === "player" ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)", color: h.who === "player" ? "var(--accent)" : "var(--text-muted)",
+                                        background: h.who === "player" ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)",
+                                        color: h.who === "player" ? "var(--accent)" : h.effect === "great" || h.effect === "good" ? "var(--success)" : h.effect === "bad" || h.effect === "terrible" ? "var(--danger)" : "var(--text-muted)",
                                         border: h.who === "player" ? "1px solid rgba(255,255,255,0.08)" : "none",
                                         borderBottomRightRadius: h.who === "player" ? "2px" : "10px", borderBottomLeftRadius: h.who === "player" ? "10px" : "2px" }}>
                                         {h.text}
@@ -3079,11 +3771,6 @@ function WhiskeyGame() {
                         {/* ---- DEAL PHASE: BUYER ---- */}
                         {convoPhase === "deal" && currentCustomer.type === "buyer" && (
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
-                            {tacticResult && (
-                              <div style={{ fontSize: "13px", color: tacticResult.effect === "great" || tacticResult.effect === "good" ? "var(--success)" : tacticResult.effect === "bad" || tacticResult.effect === "terrible" ? "var(--danger)" : "var(--text-muted)", fontStyle: "italic", textAlign: "center", padding: "8px 12px", background: "rgba(255,255,255,0.04)", borderRadius: "6px" }}>
-                                {tacticResult.text}
-                              </div>
-                            )}
                             {!negotiating && (
                               <>
                                 <div style={{ fontSize: "11px", color: "var(--text-dim)", fontFamily: "monospace" }}>Select a bottle to offer:</div>
@@ -3157,7 +3844,8 @@ function WhiskeyGame() {
                                       {negHistory.map((h, i) => (
                                         <div key={i} style={{ display: "flex", justifyContent: h.who === "player" ? "flex-end" : "flex-start", animation: "msgFadeIn 0.3s ease-out" }}>
                                           <div style={{ padding: "8px 12px", borderRadius: "10px", maxWidth: "85%", fontSize: "12px", fontFamily: "monospace", lineHeight: 1.4,
-                                            background: h.who === "player" ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)", color: h.who === "player" ? "var(--buy-accent)" : "var(--text-muted)",
+                                            background: h.who === "player" ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)",
+                                            color: h.who === "player" ? "var(--buy-accent)" : h.effect === "great" || h.effect === "good" ? "var(--success)" : h.effect === "bad" || h.effect === "terrible" ? "var(--danger)" : "var(--text-muted)",
                                             border: h.who === "player" ? "1px solid rgba(255,255,255,0.08)" : "none",
                                             borderBottomRightRadius: h.who === "player" ? "2px" : "10px", borderBottomLeftRadius: h.who === "player" ? "10px" : "2px" }}>
                                             {h.text}
@@ -3248,19 +3936,24 @@ function WhiskeyGame() {
             )}
             {activeTab === "inventory" && (
               <div>
-                <div style={{ display: "flex", gap: "12px", marginBottom: "20px", flexWrap: "wrap", alignItems: "center" }}>
-                  <span style={{ fontSize: "11px", color: "var(--text-dim)", fontFamily: "monospace" }}>FILTER</span>
-                  {["All", ...Object.keys(WHISKEY_TYPES)].map(t => (
-                    <button key={t} onClick={() => setFilterType(t)} style={{ padding: "6px 14px", border: filterType === t ? "1px solid #D4AF37" : "1px solid #3a3028", borderRadius: "6px", background: filterType === t ? "var(--accent)" : "transparent", color: filterType === t ? "var(--accent)" : "var(--text-dim)", fontSize: "12px", cursor: "pointer", fontFamily: "monospace" }}>{t}</button>
-                  ))}
-                  <span style={{ marginLeft: "auto", fontSize: "11px", color: "var(--text-dim)", fontFamily: "monospace" }}>SORT</span>
-                  {[["newest","Newest"],["value","Value"],["age","Age"],["proof","Proof"],["rarity","Rarity"]].map(([k, l]) => (
-                    <button key={k} onClick={() => setSortBy(k)} style={{ padding: "6px 14px", border: sortBy === k ? "1px solid #D4AF37" : "1px solid #3a3028", borderRadius: "6px", background: sortBy === k ? "var(--accent)" : "transparent", color: sortBy === k ? "var(--accent)" : "var(--text-dim)", fontSize: "12px", cursor: "pointer", fontFamily: "monospace" }}>{l}</button>
-                  ))}
+                <div style={{ display: "flex", gap: "6px", marginBottom: "12px", alignItems: "center" }}>
+                  {/* Type filter as compact select */}
+                  <select value={filterType} onChange={e => setFilterType(e.target.value)}
+                    style={{ width: "auto", maxWidth: "140px", padding: "6px 22px 6px 8px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "6px", color: "var(--text)", fontSize: "11px", fontFamily: "monospace", appearance: "none", WebkitAppearance: "none", backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23888'/%3E%3C/svg%3E\")", backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center" }}>
+                    <option value="All">All Types</option>
+                    {Object.keys(WHISKEY_TYPES).map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                  {/* Sort buttons */}
+                  <div style={{ display: "flex", gap: "2px", background: "var(--surface)", borderRadius: "6px", border: "1px solid var(--border)", padding: "2px", flex: "1 1 auto" }}>
+                    {[["newest","Newest"],["value","Value"],["age","Age"],["proof","Proof"],["rarity","Rarity"]].map(([k, l]) => (
+                      <button key={k} onClick={() => setSortBy(k)} style={{ flex: "1 1 0", padding: "5px 4px", border: "none", borderRadius: "4px", background: sortBy === k ? "var(--accent)" : "transparent", color: sortBy === k ? "var(--bg1)" : "var(--text-dim)", fontSize: "10px", cursor: "pointer", fontFamily: "monospace", fontWeight: sortBy === k ? "700" : "400", transition: "all 0.15s" }}>{l}</button>
+                    ))}
+                  </div>
+                  <span style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "monospace", whiteSpace: "nowrap" }}>{filteredInventory.length}/{inventory.length}</span>
                 </div>
                 {filteredInventory.length === 0
                   ? <div style={{ textAlign: "center", padding: "60px 20px", color: "#5a4a38", fontSize: "14px" }}>{inventory.length === 0 ? "Your shelves are empty. Head to the shop to buy some bottles." : "No bottles match this filter."}</div>
-                  : <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", justifyContent: "center" }}>{filteredInventory.map(b => <BottleCard key={b.id} bottle={b} showRarity={showRarity} yearEstimate={estimateYear(b)} purchasePrice={b.purchasePrice} />)}</div>
+                  : <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", justifyContent: "center" }}>{filteredInventory.map(b => <BottleCard key={b.id} bottle={b} showRarity={showRarity} purchasePrice={b.purchasePrice} />)}</div>
                 }
               </div>
             )}
@@ -3312,9 +4005,46 @@ function WhiskeyGame() {
                   };
                   return (
                     <>
-                      <SkillRow skillKey="yearEstimation" label="Year Estimation"
-                        desc={{ none: "Cannot estimate release years", master: "Exact year identification" }}
-                        accuracyFn={(lv) => YEAR_EST_ACCURACY[lv] === 0 ? "Exact" : `±${YEAR_EST_ACCURACY[lv]} year accuracy`} />
+                      {/* Appraisal skills — per whiskey type */}
+                      <div style={{ width: "100%", maxWidth: "500px" }}>
+                        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "16px", color: "var(--accent)", marginBottom: "8px", textAlign: "center" }}>Appraisal</div>
+                        <div style={{ fontSize: "11px", color: "var(--text-dim)", fontFamily: "monospace", textAlign: "center", marginBottom: "12px" }}>Train your eye for each whiskey type</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                          {[["Bourbon","Bourbon"],["Rye","Rye"],["Scotch","Scotch"],["Irish","Irish"],["Japanese","Japanese"]].map(([key, label]) => {
+                            const level = (skills.appraisal || {})[key] || 0;
+                            const maxed = level >= 3;
+                            const cost = maxed ? 0 : APPRAISAL_COSTS[level + 1];
+                            const canBuyAppr = !maxed && cash >= cost;
+                            return (
+                              <div key={key} style={{ background: "rgba(255,255,255,0.03)", borderRadius: "8px", padding: "10px 14px", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "10px" }}>
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontSize: "13px", color: "var(--text)", fontFamily: "'Inter', sans-serif", fontWeight: "500" }}>{label}</div>
+                                  <div style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "monospace" }}>
+                                    {maxed ? "Expert" : APPRAISAL_LABELS[level]}
+                                  </div>
+                                </div>
+                                <div style={{ display: "flex", gap: "3px", marginRight: "8px" }}>
+                                  {[1,2,3].map(pip => (
+                                    <div key={pip} style={{ width: "8px", height: "16px", borderRadius: "2px", background: pip <= level ? "var(--accent)" : "var(--border)", border: "1px solid var(--border)" }} />
+                                  ))}
+                                </div>
+                                {!maxed && (
+                                  <button onClick={() => {
+                                    if (canBuyAppr) {
+                                      setCash(prev => prev - cost);
+                                      setPlayerSkills(prev => ({ ...prev, appraisal: { ...(prev.appraisal || {}), [key]: level + 1 } }));
+                                      audio.playSfx("storeUpgrade");
+                                    }
+                                  }} disabled={!canBuyAppr}
+                                    style={{ padding: "6px 12px", background: canBuyAppr ? "linear-gradient(145deg, var(--accent), var(--accent-dark))" : "var(--border)", border: "none", borderRadius: "6px", color: canBuyAppr ? "var(--bg1)" : "var(--text-dim)", fontSize: "11px", fontWeight: "bold", cursor: canBuyAppr ? "pointer" : "not-allowed", fontFamily: "monospace", opacity: canBuyAppr ? 1 : 0.5, whiteSpace: "nowrap" }}>
+                                    ${cost}
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                       <SkillRow skillKey="industryKnowledge" label="Industry Knowledge"
                         desc={{ none: "No insight into brand catalogs", master: "Complete brand catalog access" }}
                         accuracyFn={(lv) => ["", "Basic brand awareness", "Common release info", "Detailed catalogs", "Expert-level archives", "Complete mastery"][lv]} />
@@ -3351,7 +4081,34 @@ function WhiskeyGame() {
                 </div>
 
                 {(() => {
+                  const ikLevel = (playerSkills || {}).industryKnowledge || 0;
+                  // Determine which brands to show based on IK level
+                  // Level 0: Legacy brands + any encountered brands
+                  // Level 1: + Established brands
+                  // Level 2: + Young brands
+                  // Level 3: + Defunct brands
+                  const isBrandVisible = (brandData) => {
+                    const hasEncountered = Object.keys(brandData).filter(k => !k.startsWith("__")).some(k => brandData[k].encounters > 0);
+                    if (hasEncountered) return true; // always show encountered brands
+                    const cat = brandData.__ageCategory;
+                    const isDefunct = !!brandData.__defunct;
+                    if (isDefunct) return ikLevel >= 3;
+                    if (cat === "young") return ikLevel >= 2;
+                    if (cat === "established") return ikLevel >= 1;
+                    return true; // legacy always visible
+                  };
+                  // Does the player know the history details for this brand?
+                  const knowsHistory = (brandData) => {
+                    const cat = brandData.__ageCategory;
+                    const isDefunct = !!brandData.__defunct;
+                    if (isDefunct) return ikLevel >= 3;
+                    if (cat === "young") return ikLevel >= 2;
+                    if (cat === "established") return ikLevel >= 1;
+                    return true;
+                  };
+
                   const allBrands = Object.keys(codex).filter(b => {
+                    if (!isBrandVisible(codex[b])) return false;
                     if (codexSearch.trim()) return b.toLowerCase().includes(codexSearch.toLowerCase());
                     return true;
                   });
@@ -3389,6 +4146,7 @@ function WhiskeyGame() {
                           const types = [...new Set(variantKeys.map(k => data[k].typeName).filter(Boolean))];
                           const encountered = variantKeys.filter(k => data[k].encounters > 0).length;
                           const hasEncountered = encountered > 0;
+                          const historyKnown = knowsHistory(data);
 
                           // Section headers for region/type sort
                           let sectionHeader = null;
@@ -3407,11 +4165,14 @@ function WhiskeyGame() {
                                 </div>
                               )}
                               <button onClick={() => setCodexDetailBrand(brand)}
-                                style={{ width: "calc(25% - 5px)", minWidth: "70px", padding: "10px 6px", background: "var(--surface)", border: hasEncountered ? "1px solid var(--border)" : "1px dashed var(--border)", borderRadius: "8px", cursor: "pointer", opacity: hasEncountered ? 1 : 0.55, display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+                                style={{ width: "calc(25% - 5px)", minWidth: "70px", padding: "10px 6px", background: "var(--surface)", border: hasEncountered ? "1px solid var(--border)" : "1px dashed var(--border)", borderRadius: "8px", cursor: "pointer", opacity: hasEncountered ? 1 : 0.55, display: "flex", flexDirection: "column", alignItems: "center", gap: "3px" }}>
                                 <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "11px", color: "var(--text)", lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", width: "100%" }}>{brand}</div>
+                                <div style={{ fontSize: "8px", color: data.__defunct ? "var(--danger)" : "var(--text-dim)", fontFamily: "monospace" }}>
+                                  {historyKnown ? (data.__founded ? `Est. ${data.__founded}` : "") + (data.__defunct ? " ✕" : "") : (hasEncountered ? "???" : "")}
+                                </div>
                                 <div style={{ display: "flex", gap: "3px", flexWrap: "wrap", justifyContent: "center" }}>
                                   {types.map(t => (
-                                    <span key={t} style={{ fontSize: "8px", padding: "0px 4px", borderRadius: "4px", background: "rgba(255,255,255,0.06)", color: t === "Bourbon" ? "var(--accent)" : "var(--buy-accent)", fontFamily: "'Inter', sans-serif" }}>{t.slice(0,3)}</span>
+                                    <span key={t} style={{ fontSize: "8px", padding: "0px 4px", borderRadius: "4px", background: "rgba(255,255,255,0.06)", color: t === "Bourbon" ? "var(--accent)" : "var(--buy-accent)", fontFamily: "'Inter', sans-serif" }}>{({"Bourbon":"Bou","Rye":"Rye","Single Malt Scotch":"Sco","Blended Scotch":"BSc","Irish Whiskey":"Iri","Japanese Whisky":"Jpn"}[t] || t.slice(0,3))}</span>
                                   ))}
                                 </div>
                               </button>
@@ -3431,18 +4192,89 @@ function WhiskeyGame() {
                               const data = codex[brand];
                               const variantKeys = Object.keys(data).filter(k => !k.startsWith("__")).sort();
                               const region = data.__region || "Unknown";
+                              const founded = data.__founded;
+                              const defunct = data.__defunct;
+                              const ageCategory = data.__ageCategory;
+                              const brandTypes = data.__types || [];
+                              const totalProducts = data.__totalProducts || variantKeys.length;
+                              const currentYear = 2026;
+                              const yearsActive = founded ? (defunct || currentYear) - founded : null;
+                              const ikLvl = (playerSkills || {}).industryKnowledge || 0;
+                              const histKnown = (() => {
+                                if (!!defunct) return ikLvl >= 3;
+                                if (ageCategory === "young") return ikLvl >= 2;
+                                if (ageCategory === "established") return ikLvl >= 1;
+                                return true;
+                              })();
                               return (
                                 <>
                                   {/* Brand header */}
-                                  <div style={{ textAlign: "center", marginBottom: "16px" }}>
-                                    <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "var(--accent)", fontSize: "20px", margin: "0 0 4px 0" }}>{brand}</h3>
-                                    <span style={{ fontSize: "10px", padding: "2px 10px", borderRadius: "8px", background: "rgba(255,255,255,0.06)", color: "var(--text-dim)", fontFamily: "'Inter', sans-serif" }}>{region}</span>
+                                  <div style={{ textAlign: "center", marginBottom: "12px" }}>
+                                    <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", color: "var(--accent)", fontSize: "20px", margin: "0 0 6px 0" }}>{brand}</h3>
+                                    <div style={{ display: "flex", gap: "6px", justifyContent: "center", flexWrap: "wrap", marginBottom: "8px" }}>
+                                      <span style={{ fontSize: "10px", padding: "2px 10px", borderRadius: "8px", background: "rgba(255,255,255,0.06)", color: "var(--text-dim)", fontFamily: "'Inter', sans-serif" }}>{region}</span>
+                                      {histKnown && brandTypes.map(t => (
+                                        <span key={t} style={{ fontSize: "10px", padding: "2px 10px", borderRadius: "8px", background: "rgba(255,255,255,0.06)", color: "var(--text-muted)", fontFamily: "'Inter', sans-serif" }}>{t}</span>
+                                      ))}
+                                      {histKnown && defunct && <span style={{ fontSize: "10px", padding: "2px 10px", borderRadius: "8px", background: "rgba(255,255,255,0.06)", color: "var(--danger)", fontFamily: "'Inter', sans-serif", fontWeight: "600" }}>DEFUNCT</span>}
+                                    </div>
                                   </div>
-                                  <div style={{ height: "1px", background: "linear-gradient(90deg, transparent, var(--border), transparent)", marginBottom: "16px" }} />
+                                  {/* Brand history bar — gated by IK */}
+                                  {histKnown && founded ? (
+                                    <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: "8px", padding: "10px 14px", marginBottom: "12px" }}>
+                                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                                        <span style={{ fontSize: "11px", fontFamily: "'Inter', sans-serif", color: "var(--text-muted)" }}>
+                                          Est. {founded}{defunct ? ` — Closed ${defunct}` : ""}
+                                        </span>
+                                        <span style={{ fontSize: "11px", fontFamily: "'Inter', sans-serif", color: "var(--text-dim)" }}>
+                                          {yearsActive ? `${yearsActive} year${yearsActive !== 1 ? "s" : ""}` : ""}
+                                          {ageCategory ? ` · ${ageCategory.charAt(0).toUpperCase() + ageCategory.slice(1)}` : ""}
+                                        </span>
+                                      </div>
+                                      {/* Timeline bar */}
+                                      <div style={{ position: "relative", height: "8px", background: "var(--surface)", borderRadius: "4px", overflow: "hidden" }}>
+                                        {(() => {
+                                          const earliest = 1890;
+                                          const span = currentYear - earliest;
+                                          const startPct = Math.max(0, ((founded - earliest) / span) * 100);
+                                          const endPct = Math.min(100, (((defunct || currentYear) - earliest) / span) * 100);
+                                          return <div style={{ position: "absolute", left: `${startPct}%`, width: `${Math.max(1, endPct - startPct)}%`, height: "100%", background: defunct ? "var(--danger)" : "var(--accent)", borderRadius: "4px", opacity: 0.6 }} />;
+                                        })()}
+                                      </div>
+                                      <div style={{ position: "relative", fontSize: "8px", color: "var(--text-dim)", fontFamily: "monospace", marginTop: "2px", height: "12px" }}>
+                                        <span style={{ position: "absolute", left: 0 }}>1890</span>
+                                        {(() => {
+                                          const startPct = Math.max(0, ((founded - 1890) / (currentYear - 1890)) * 100);
+                                          if (startPct > 8) return <span style={{ position: "absolute", left: `${startPct}%`, transform: "translateX(-50%)", color: "var(--text-muted)" }}>{founded}</span>;
+                                          return null;
+                                        })()}
+                                        <span style={{ position: "absolute", right: 0 }}>{currentYear}</span>
+                                      </div>
+                                    </div>
+                                  ) : !histKnown ? (
+                                    <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: "8px", padding: "14px", marginBottom: "12px", textAlign: "center" }}>
+                                      <div style={{ position: "relative", height: "8px", background: "var(--surface)", borderRadius: "4px", marginBottom: "6px" }} />
+                                      <span style={{ fontSize: "11px", color: "var(--text-dim)", fontFamily: "'Inter', sans-serif", fontStyle: "italic" }}>History unknown — increase Industry Knowledge to learn more</span>
+                                    </div>
+                                  ) : null}
+                                  {(() => {
+                                    const visibleCount = histKnown ? variantKeys.length : variantKeys.filter(vk => data[vk].encounters > 0).length;
+                                    return (
+                                      <div style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "'Inter', sans-serif", textAlign: "center", marginBottom: "12px" }}>
+                                        {visibleCount} product{visibleCount !== 1 ? "s" : ""} known{histKnown && totalProducts > variantKeys.length ? ` of ${totalProducts} total` : ""}
+                                      </div>
+                                    );
+                                  })()}
+                                  <div style={{ height: "1px", background: "linear-gradient(90deg, transparent, var(--border), transparent)", marginBottom: "12px" }} />
 
                                   {/* Variant cards */}
                                   <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                                    {variantKeys.map(vk => {
+                                    {variantKeys.filter(vk => {
+                                      // If history is known via IK, show all products
+                                      if (histKnown) return true;
+                                      // Otherwise only show products the player has personally encountered
+                                      return data[vk].encounters > 0;
+                                    }).map(vk => {
                                       const v = data[vk];
                                       const isEncountered = v.encounters > 0;
                                       return (
@@ -3512,6 +4344,25 @@ function WhiskeyGame() {
                 })()}
               </div>
             )}
+          </div>
+          </div>
+
+          {/* Fixed Bottom Navigation Bar */}
+          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "linear-gradient(180deg, var(--bg2), var(--bg1))", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-around", alignItems: "center", padding: "4px 0 max(4px, env(safe-area-inset-bottom))", zIndex: 90 }}>
+            {[
+              { id: "shop", icon: "🏪", label: "Shop" },
+              { id: "codex", icon: "📖", label: "Codex" },
+              { id: "skills", icon: "⭐", label: "Skills" },
+              { id: "storefront", icon: "🔧", label: "Upgrades" },
+              { id: "inventory", icon: "📦", label: "Inventory" },
+            ].map(tab => (
+              <button key={tab.id} onClick={() => { setActiveTab(tab.id); audio.playSfx("buttonClick"); }}
+                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1px", background: "none", border: "none", cursor: "pointer", padding: "4px 12px", minWidth: "52px",
+                  color: activeTab === tab.id ? "var(--accent)" : "var(--text-dim)", transition: "color 0.2s" }}>
+                <span style={{ fontSize: "18px", lineHeight: 1 }}>{tab.icon}</span>
+                <span style={{ fontSize: "9px", fontFamily: "'Inter', sans-serif", fontWeight: activeTab === tab.id ? "600" : "400", letterSpacing: "0.3px" }}>{tab.label}</span>
+              </button>
+            ))}
           </div>
 
           {/* Tactics Modal Dialog */}
