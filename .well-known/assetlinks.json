@@ -1,0 +1,9 @@
+json
+   [{
+     "relation": ["delegate_permission/common.handle_all_urls"],
+     "target": {
+       "namespace": "android_app",
+       "package_name": "com.dirigiblegames.rarespirits",
+       "sha256_cert_fingerprints": ["51:8B:D7:A9:01:08:AC:B7:55:A5:E1:CC:FF:85:89:18:F7:92:47:58:0D:09:93:39:12:2D:14:B1:89:09:84:98"]
+     }
+   }]
