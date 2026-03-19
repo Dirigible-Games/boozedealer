@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Rare Spirits — Whiskey Trading Co.</title>
   <meta name="theme-color" content="#0d0a07">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="manifest.json">
   <style>
-    html, body, #root { margin: 0; padding: 0; min-height: 100vh; background: #0d0a07; }
+    html, body, #root { margin: 0; padding: 0; min-height: 100dvh; background: #0d0a07; }
     body { overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
     button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
   </style>
@@ -1219,19 +1219,17 @@ function BottleCard({ bottle, showRarity = false, onClick, yearEstimate = null, 
   }
   const hl = (field) => inspectHighlight?.field === field ? { boxShadow: inspectHighlight.success ? "0 0 12px rgba(34,197,94,0.7), inset 0 0 8px rgba(34,197,94,0.15)" : "0 0 12px rgba(239,68,68,0.7), inset 0 0 8px rgba(239,68,68,0.15)", borderRadius: "4px", transition: "box-shadow 0.2s", padding: "1px 3px", background: inspectHighlight.success ? "rgba(34,197,94,0.08)" : "rgba(239,68,68,0.08)" } : {};
   const cardEl = (
-    <div onClick={onClick} style={{ ...borderStyle, borderRadius: "16px", background: `linear-gradient(145deg, var(--bg3), var(--bg2))`, padding: "16px", cursor: onClick ? "pointer" : "default", width: "280px", maxWidth: "90vw", flexShrink: 0,
-      transform: cardTransform || "none",
-      zIndex: cardTransform ? 10 : "auto",
+    <div onClick={onClick} style={{ ...borderStyle, borderRadius: "16px", background: `linear-gradient(145deg, var(--bg3), var(--bg2))`, padding: "12px", cursor: onClick ? "pointer" : "default", width: "250px", maxWidth: "90vw", flexShrink: 0,
       position: "relative",
       overflow: "visible",
     }}
       onMouseEnter={e => { if (!rarityRevealPhase) { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.6)"; } }}
       onMouseLeave={e => { if (!rarityRevealPhase) { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = ""; } }}>
-      <div style={{ display: "flex", justifyContent: "center", marginBottom: "12px", background: "radial-gradient(ellipse at center, rgba(255,248,230,0.08) 0%, transparent 70%)", borderRadius: "8px", padding: "8px 0" }}>
-        <BottleSVG bottle={bottle} size={140} />
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: "8px", background: "radial-gradient(ellipse at center, rgba(255,248,230,0.08) 0%, transparent 70%)", borderRadius: "8px", padding: "4px 0" }}>
+        <BottleSVG bottle={bottle} size={110} />
       </div>
-      <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "15px", color: "var(--text)", margin: "0 0 10px 0", lineHeight: 1.3, textAlign: "center", minHeight: "40px" }}>{bottle.displayName}</h3>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "10px", justifyContent: "center", ...hl("type") }}>
+      <h3 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "14px", color: "var(--text)", margin: "0 0 8px 0", lineHeight: 1.3, textAlign: "center", height: "55px", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>{bottle.displayName}</h3>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "4px", marginBottom: "10px", justifyContent: "center", minHeight: "48px", alignContent: "center", ...hl("type") }}>
         <span style={tagStyle("#8B4513")}>{bottle.region}</span>
         <span style={tagStyle("#704214")}>{bottle.typeName}</span>
         <span style={{ ...hl("modifiers") }}>{bottle.modifiers.map((m, i) => <span key={i} style={tagStyle("#5B3A29")}>{m}</span>)}</span>
@@ -1914,7 +1912,7 @@ function WhiskeyGame() {
     setConvoTurns(0); setUsedConvoOptions([]); setTraitHints([]); setConvoWaiting(false);
     setInspectResult(null); setInspectAnimating(false); setInspectHighlight(null);
     setRarityRevealPhase(null); setRarityRevealProgress(0); setRarityRevealColor(null);
-    setMysteryGlowing(false); setShowMysteryModal(false);
+    setMysteryGlowing(false); setShowMysteryModal(false); setShowBottlePicker(false);
     setPreTacticUsed(null); setMidTacticUsed(null); setTacticResult(null); setShowTacticsMenu(false);
     setTradeMode(false); setTradeBottleId(null); setTradeResult(null); setTradePendingBottle(null);
     setDayEvent(null); setShowEventModal(false); setDailyLog([]); setShowDaySummary(null);
@@ -2021,6 +2019,7 @@ function WhiskeyGame() {
   const [rarityRevealColor, setRarityRevealColor] = useState(null);
   const [mysteryGlowing, setMysteryGlowing] = useState(false);
   const [showMysteryModal, setShowMysteryModal] = useState(false);
+  const [showBottlePicker, setShowBottlePicker] = useState(false);
 
   const handleInspect = useCallback((bottle, customerKnowledge) => {
     if (!bottle || inspectResult || inspectAnimating) return;
@@ -2089,7 +2088,7 @@ function WhiskeyGame() {
     const steps = [];
     if (!alreadyVisible.type) steps.push({ field: "type", success: typeRevealed, key: "typeRevealed" });
     if (!alreadyVisible.proof) steps.push({ field: "proof", success: proofRevealed, key: "proofRevealed" });
-    if (!alreadyVisible.modifiers) steps.push({ field: "modifiers", success: modifiersRevealed, key: "modifiersRevealed" });
+    if (!alreadyVisible.modifiers && bottle.modifiers && bottle.modifiers.length > 0) steps.push({ field: "modifiers", success: modifiersRevealed, key: "modifiersRevealed" });
     if (!alreadyVisible.year) steps.push({ field: "year", success: yearRevealed, key: "yearRevealed" });
     // Rarity is ALWAYS unknown before inspect, always animate it last
     // But we handle it separately with the border sweep
@@ -2102,7 +2101,7 @@ function WhiskeyGame() {
       inspected: true,
       typeRevealed: alreadyVisible.type || false,
       proofRevealed: alreadyVisible.proof || false,
-      modifiersRevealed: alreadyVisible.modifiers || false,
+      modifiersRevealed: alreadyVisible.modifiers || (!bottle.modifiers || bottle.modifiers.length === 0) || false,
       yearRevealed: alreadyVisible.year || false,
       rarityRevealed: false, mysteryFlag: false, counterfeitDetected: false,
     };
@@ -3767,28 +3766,28 @@ function WhiskeyGame() {
       {/* GAME */}
       {screen === "game" && engine && (
         <>
-          <div style={{ borderBottom: "1px solid var(--border)", padding: "4px 12px", background: "linear-gradient(180deg, var(--surface) 0%, transparent 100%)" }}>
+          <div id="game-header" style={{ borderBottom: "1px solid var(--border)", padding: "4px 12px", background: "var(--bg1)" }}>
             <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
               {/* Single row: name left, stats center, buttons right */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ minWidth: "60px" }}>
                   <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: "14px", color: "var(--accent)", letterSpacing: "0.5px", lineHeight: 1.1 }}>{storeName}</div>
-                  <div style={{ fontSize: "7px", color: "var(--text-dim)", letterSpacing: "1px", fontFamily: "monospace" }}>
+                  <div style={{ fontSize: "9px", color: "var(--text-dim)", letterSpacing: "1px", fontFamily: "monospace" }}>
                     DAY {day} · {STORE_TIERS[storeTier - 1].name.toUpperCase()}
                     {missedRent > 0 && <span style={{ color: "var(--danger)", marginLeft: "4px" }}>OVERDUE</span>}
                   </div>
                 </div>
-                <div style={{ display: "flex", gap: "4px", fontSize: "9px", fontFamily: "'Inter', sans-serif", fontWeight: "500" }}>
-                  <div style={{ background: "var(--surface)", padding: "2px 6px", borderRadius: "3px", border: "1px solid var(--border)" }}>
+                <div style={{ display: "flex", gap: "4px", fontSize: "10px", fontFamily: "'Inter', sans-serif", fontWeight: "500" }}>
+                  <div style={{ background: "var(--surface)", padding: "3px 7px", borderRadius: "4px", border: "1px solid var(--border)" }}>
                     <span style={{ color: "var(--text-dim)" }}>$</span><span style={{ color: cash < tierData.weeklyRent ? "var(--danger)" : "var(--success)", fontWeight: "bold" }}>{cash.toLocaleString()}</span>
                   </div>
-                  <div style={{ background: "var(--surface)", padding: "2px 6px", borderRadius: "3px", border: "1px solid var(--border)" }}>
+                  <div style={{ background: "var(--surface)", padding: "3px 7px", borderRadius: "4px", border: "1px solid var(--border)" }}>
                     <span style={{ color: "var(--text-dim)" }}>REP </span><span style={{ color: "var(--accent)", fontWeight: "bold" }}>{reputation}</span>
                   </div>
-                  <div style={{ background: "var(--surface)", padding: "2px 6px", borderRadius: "3px", border: "1px solid var(--border)" }}>
+                  <div style={{ background: "var(--surface)", padding: "3px 7px", borderRadius: "4px", border: "1px solid var(--border)" }}>
                     <span style={{ color: inventory.length >= shelfLimit ? "var(--danger)" : "var(--text)", fontWeight: "bold" }}>{inventory.length}/{shelfLimit}</span>
                   </div>
-                  <div style={{ background: "var(--surface)", padding: "2px 6px", borderRadius: "3px", border: "1px solid var(--border)" }}>
+                  <div style={{ background: "var(--surface)", padding: "3px 7px", borderRadius: "4px", border: "1px solid var(--border)" }}>
                     <span style={{ color: "var(--text-dim)" }}>RENT </span><span style={{ color: "var(--text)" }}>${tierData.weeklyRent}</span>
                     {day % 7 > 0 && <span style={{ color: "var(--text-dim)" }}> ({7 - (day % 7)}d)</span>}
                   </div>
@@ -3822,9 +3821,9 @@ function WhiskeyGame() {
             </div>
           </div>
 
-          <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "8px 12px 72px" }}>
+          <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "0 12px 0" }}>
 
-            <div style={{ minHeight: "calc(100vh - 140px)" }}>
+            <div>
             {activeTab === "storefront" && (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "20px" }}>
                 <StorefrontSVG storeName={storeName} tier={storeTier} />
@@ -3955,33 +3954,30 @@ function WhiskeyGame() {
 
 
                     {currentCustomer ? (
-                      <div style={{ animation: "fadeIn 0.4s ease-out" }}>
-                        {/* === SLOT 1: Customer Name + Badge === */}
-                        <div style={{ textAlign: "center", marginBottom: "4px" }}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
-                            <span style={{ fontSize: "15px", color: "var(--text)", fontFamily: "'Playfair Display', Georgia, serif" }}>
+                      <div style={{ animation: "fadeIn 0.4s ease-out", display: "flex", flexDirection: "column", height: "calc(100dvh - 130px - env(safe-area-inset-bottom, 0px))", overflow: "hidden" }}>
+                        {/* === CUSTOMER NAME BAR — pinned to top === */}
+                        <div style={{ flexShrink: 0, padding: "4px 0 2px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", flexWrap: "wrap" }}>
+                            <span style={{ fontSize: "16px", color: "var(--text)", fontFamily: "'Playfair Display', Georgia, serif" }}>
                               {currentCustomer.name}
                             </span>
                             {convoPhase === "deal" && (
-                              <span style={{ padding: "2px 8px", borderRadius: "10px", fontSize: "9px", fontFamily: "monospace", letterSpacing: "0.5px",
+                              <span style={{ padding: "2px 8px", borderRadius: "10px", fontSize: "10px", fontFamily: "monospace", letterSpacing: "0.5px",
                                 background: "rgba(255,255,255,0.05)",
                                 color: currentCustomer.type === "seller" ? "var(--accent)" : "var(--buy-accent)",
                                 border: `1px solid ${currentCustomer.type === "seller" ? "var(--accent)" : "var(--buy-accent)"}` }}>
                                 {currentCustomer.type === "seller" ? "SELLING" : "BUYING"}
                               </span>
                             )}
+                            {traitHints.map((hint, i) => (
+                              <span key={i} style={{ fontSize: "9px", padding: "1px 6px", background: "#D4AF3710", border: "1px solid #D4AF3730", borderRadius: "8px", color: "var(--accent)", fontFamily: "monospace" }}>{hint}</span>
+                            ))}
                           </div>
-                          {traitHints.length > 0 && (
-                            <div style={{ display: "flex", gap: "4px", justifyContent: "center", flexWrap: "wrap", marginTop: "3px" }}>
-                              {traitHints.map((hint, i) => (
-                                <span key={i} style={{ fontSize: "9px", padding: "1px 6px", background: "#D4AF3710", border: "1px solid #D4AF3730", borderRadius: "8px", color: "var(--accent)", fontFamily: "monospace" }}>{hint}</span>
-                              ))}
-                            </div>
-                          )}
                         </div>
 
-                        {/* === SLOT 2: Visual Area (fixed height — customer silhouette OR bottle card) === */}
-                        <div style={{ minHeight: "320px", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", marginBottom: "4px", position: "relative" }}>
+                        {/* === VISUAL AREA: bottle card or customer placeholder (fixed size to prevent layout shift) === */}
+                        <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "4px 0", height: "320px" }}>
+                          <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", position: "relative", width: "250px", height: "320px" }}>
                           {convoPhase === "deal" && currentCustomer.type === "seller" && currentCustomer.bottle ? (() => {
                             const b = currentCustomer.bottle;
                             const vis = getBottleVisibility(b, currentCustomer);
@@ -3996,48 +3992,83 @@ function WhiskeyGame() {
                               yearKnown: vis.year,
                             };
                             return (
-                              <div style={{ position: "relative" }}>
+                              <div style={{ position: "relative",
+                                transform: (() => {
+                                  if (rarityRevealPhase !== "breathe" || !rarityRevealProgress) return "none";
+                                  const raw = rarityRevealProgress;
+                                  const drama = raw >= 10 ? 1.0 : raw >= 6 ? 0.66 : raw >= 3 ? 0.33 : 0;
+                                  if (drama <= 0) return "none";
+                                  const scale = 1 + drama * 0.06;
+                                  const shakeAmount = drama * 2.5;
+                                  const shakeX = (Math.sin(Date.now() * 0.025) * shakeAmount).toFixed(1);
+                                  const shakeY = (Math.cos(Date.now() * 0.031) * shakeAmount * 0.6).toFixed(1);
+                                  return `scale(${scale}) translate(${shakeX}px, ${shakeY}px)`;
+                                })(),
+                                zIndex: rarityRevealPhase === "breathe" && rarityRevealProgress >= 3 ? 10 : "auto",
+                              }}>
+                                {/* Unicorn glow layer — behind card, on wrapper */}
+                                {rarityRevealPhase === "breathe" && rarityRevealColor === "unicorn" && (() => {
+                                  const raw = rarityRevealProgress;
+                                  const intensity = Math.max(0, Math.min(raw - 10, 1));
+                                  if (intensity <= 0.02) return null;
+                                  return (
+                                    <div style={{
+                                      position: "absolute", inset: `${-Math.round(6 + intensity * 14)}px`, borderRadius: "22px", zIndex: 0, pointerEvents: "none",
+                                      background: `linear-gradient(135deg, rgba(59,130,246,${intensity * 0.5}), rgba(168,85,247,${intensity * 0.4}), rgba(236,72,153,${intensity * 0.5}))`,
+                                      boxShadow: `0 0 ${Math.round(45 * intensity)}px rgba(59,130,246,${intensity * 0.4}), 0 0 ${Math.round(45 * intensity)}px rgba(236,72,153,${intensity * 0.4})`,
+                                    }} />
+                                  );
+                                })()}
                                 <BottleCard bottle={displayBottle} showRarity={vis.rarity} hideValue={true} inspectHighlight={inspectHighlight} rarityRevealPhase={rarityRevealPhase} rarityRevealProgress={rarityRevealProgress} rarityRevealColor={rarityRevealColor} />
                                 {/* Inspect magnifying glass - top left */}
                                 {!inspectResult && !inspectAnimating ? (
                                   <button onClick={(e) => { e.stopPropagation(); handleInspect(currentCustomer.bottle, currentCustomer.traits?.knowledge); }}
-                                    style={{ position: "absolute", top: "8px", left: "8px", width: "28px", height: "28px", borderRadius: "50%", background: "rgba(0,0,0,0.6)", border: "1px solid var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "14px", padding: 0 }}>
+                                    style={{ position: "absolute", top: "6px", left: "6px", width: "44px", height: "44px", borderRadius: "50%", background: "rgba(0,0,0,0.6)", border: "2px solid var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "22px", padding: 0, zIndex: 20 }}>
                                     🔍
                                   </button>
                                 ) : inspectAnimating ? (
-                                  <div style={{ position: "absolute", top: "8px", left: "8px", width: "28px", height: "28px", borderRadius: "50%", background: "rgba(0,0,0,0.6)", border: "1px solid var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", animation: "subtleGlow 1s ease-in-out infinite" }}>
+                                  <div style={{ position: "absolute", top: "6px", left: "6px", width: "44px", height: "44px", borderRadius: "50%", background: "rgba(0,0,0,0.6)", border: "2px solid var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px", animation: "subtleGlow 1s ease-in-out infinite", zIndex: 20 }}>
                                     🔍
                                   </div>
                                 ) : (
-                                  <div style={{ position: "absolute", top: "8px", left: "8px", width: "28px", height: "28px", borderRadius: "50%", background: "rgba(0,0,0,0.4)", border: "1px solid var(--text-dim)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px", opacity: 0.5 }}>
+                                  <div style={{ position: "absolute", top: "6px", left: "6px", width: "44px", height: "44px", borderRadius: "50%", background: "rgba(0,0,0,0.4)", border: "2px solid var(--text-dim)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "22px", opacity: 0.5, zIndex: 20 }}>
                                     ✓
                                   </div>
                                 )}
                                 {vis.mysteryFlag && (
                                   <button onClick={(e) => { e.stopPropagation(); setShowMysteryModal(true); }}
-                                    style={{ position: "absolute", top: "8px", right: "8px", width: "28px", height: "28px", borderRadius: "50%", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "15px", fontWeight: "bold", color: "var(--bg1)", border: "none", cursor: "pointer", padding: 0,
-                                      boxShadow: mysteryGlowing ? "0 0 20px rgba(212,175,55,0.8), 0 0 40px rgba(212,175,55,0.4)" : "0 2px 8px rgba(0,0,0,0.4)",
+                                    style={{ position: "absolute", top: "6px", right: "6px", width: "44px", height: "44px", borderRadius: "50%", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px", fontWeight: "bold", color: "var(--bg1)", border: "none", cursor: "pointer", padding: 0, zIndex: 20,
+                                      boxShadow: mysteryGlowing ? "0 0 24px rgba(212,175,55,0.8), 0 0 48px rgba(212,175,55,0.4)" : "0 2px 8px rgba(0,0,0,0.4)",
                                       animation: mysteryGlowing ? "subtleGlow 0.6s ease-in-out infinite" : "none",
                                       transition: "box-shadow 0.3s" }}>?</button>
                                 )}
                                 {vis.counterfeitDetected && (
-                                  <div style={{ position: "absolute", top: "40px", left: "8px", padding: "2px 8px", borderRadius: "6px", background: "var(--danger)", fontSize: "9px", fontWeight: "bold", color: "#fff", letterSpacing: "0.5px" }}>SUSPECT</div>
+                                  <div style={{ position: "absolute", top: "54px", left: "6px", padding: "2px 8px", borderRadius: "6px", background: "var(--danger)", fontSize: "9px", fontWeight: "bold", color: "#fff", letterSpacing: "0.5px", zIndex: 20 }}>SUSPECT</div>
                                 )}
                               </div>
                             );
                           })() : (
-                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", opacity: 0.3 }}>
-                              <svg width="60" height="80" viewBox="0 0 60 80">
+                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", opacity: 0.3, width: "250px", height: "320px" }}>
+                              <svg width="70" height="90" viewBox="0 0 60 80">
                                 <circle cx="30" cy="22" r="14" fill="var(--text-dim)" />
                                 <ellipse cx="30" cy="62" rx="22" ry="18" fill="var(--text-dim)" />
                               </svg>
                             </div>
                           )}
                         </div>
+                        </div>
 
-                        {/* === SLOT 3: Conversation Log (fixed height, always present) === */}
-                        <div style={{ maxWidth: "460px", margin: "12px auto 8px" }}>
-                          <div ref={convoLogRef} style={{ width: "100%", height: "140px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "6px", padding: "8px", background: "rgba(255,255,255,0.03)", borderRadius: "8px", scrollBehavior: "smooth" }}>
+                        {/* === BOTTOM SHEET: Conversation + Actions (takes all remaining space) === */}
+                        <div style={{ flex: "1 1 auto", display: "flex", flexDirection: "column", background: "linear-gradient(180deg, var(--bg3), var(--bg2))", borderTop: "1px solid var(--border)", borderRadius: "16px 16px 0 0", padding: "0 12px 8px", maxWidth: "100%", position: "relative", minHeight: 0, overflow: "hidden" }}>
+                          {/* Drag handle visual */}
+                          <div style={{ display: "flex", justifyContent: "center", padding: "6px 0 4px" }}>
+                            <div style={{ width: "32px", height: "3px", background: "var(--border)", borderRadius: "2px" }} />
+                          </div>
+
+                          {/* Conversation log — scrollable, fills available space, always shows at least last message */}
+                          <div style={{ flex: "1 1 auto", width: "100%", maxWidth: "460px", margin: "0 auto 6px", minHeight: "44px", overflow: "hidden" }}>
+                            <div ref={convoLogRef} style={{ width: "100%", height: "100%", overflowY: "auto", display: "flex", flexDirection: "column-reverse", gap: "5px", padding: "6px 8px", background: "rgba(255,255,255,0.02)", borderRadius: "8px", scrollBehavior: "smooth" }}>
+                              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
                             {convoLog.map((msg, i) => (
                               <div key={i} style={{ display: "flex", justifyContent: msg.who === "player" ? "flex-end" : msg.who === "narrator" ? "center" : "flex-start", animation: "msgFadeIn 0.3s ease-out" }}>
                                 {msg.who === "narrator" ? (
@@ -4059,14 +4090,15 @@ function WhiskeyGame() {
                                 <div style={{ padding: "6px 10px", borderRadius: "10px", fontSize: "12px", fontFamily: "monospace", background: "var(--border)", color: "var(--text-dim)" }}>...</div>
                               </div>
                             )}
+                              </div>
                           </div>
                         </div>
 
-                        {/* === SLOT 4: Action Area (conversation options OR deal controls) === */}
-                        <div style={{ maxWidth: "460px", margin: "0 auto" }}>
+                        {/* Action Area (conversation options OR deal controls) */}
+                        <div style={{ width: "100%", maxWidth: "460px", margin: "0 auto", flexShrink: 0 }}>
                           {/* CONVERSATION OPTIONS */}
-                          {(convoPhase === "greeting" || convoPhase === "chat" || convoPhase === "forced") && !convoWaiting && (
-                            <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+                          {(convoPhase === "greeting" || convoPhase === "chat" || convoPhase === "forced") && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "5px", justifyContent: "flex-end", minHeight: "225px", opacity: convoWaiting ? 0.3 : 1, pointerEvents: convoWaiting ? "none" : "auto", transition: "opacity 0.2s" }}>
                               {convoPhase !== "forced" && CONVO_OPTIONS
                                 .filter(opt => {
                                   if (usedConvoOptions.includes(opt.id)) return false;
@@ -4083,8 +4115,8 @@ function WhiskeyGame() {
                                   </button>
                                 ))
                               }
-                              <button onClick={handleInquireBusiness}
-                                style={{ padding: "10px 14px", background: "var(--surface)", border: "2px solid var(--accent)", borderRadius: "10px", color: "var(--accent)", fontSize: "13px", cursor: "pointer", fontFamily: "'Inter', sans-serif", fontWeight: "700", width: "100%", letterSpacing: "0.3px" }}>
+                              <button onClick={handleInquireBusiness} disabled={convoWaiting}
+                                style={{ padding: "10px 14px", background: "var(--surface)", border: "2px solid var(--accent)", borderRadius: "10px", color: "var(--accent)", fontSize: "13px", cursor: convoWaiting ? "default" : "pointer", fontFamily: "'Inter', sans-serif", fontWeight: "700", width: "100%", letterSpacing: "0.3px" }}>
                                 Let's talk business
                               </button>
                             </div>
@@ -4261,42 +4293,28 @@ function WhiskeyGame() {
                               </div>
                             ) : !negotiating && (
                               <>
-                                {(() => {
-                                  const hasPivoted = currentCustomer.pivoted;
-                                  const matching = hasPivoted ? inventory : inventory.filter(currentCustomer.filter);
-                                  const nonMatching = hasPivoted ? [] : inventory.filter(b => !currentCustomer.filter(b));
-                                  const sorted = [...matching, ...nonMatching];
-                                  if (sorted.length === 0) return <div style={{ color: "#5a4a38", fontSize: "13px", padding: "20px" }}>Your shelves are empty.</div>;
+                                {/* Selected bottle summary or select button */}
+                                {selectedSellBottle ? (() => {
+                                  const selBottle = inventory.find(b => b.id === selectedSellBottle);
+                                  if (!selBottle) return null;
                                   return (
-                                    <div style={{ width: "100%", maxWidth: "460px" }}>
-                                      <div style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "monospace", marginBottom: "4px" }}>
-                                        {hasPivoted ? "They're open to suggestions — select a bottle to offer" : `Select a bottle to offer (${matching.length} match${matching.length !== 1 ? "es" : ""})`}
+                                    <div style={{ display: "flex", alignItems: "center", gap: "8px", width: "100%", maxWidth: "460px", padding: "6px 10px", background: "rgba(59,130,246,0.1)", borderRadius: "8px", border: "1px solid var(--buy-accent)" }}>
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontSize: "12px", color: "var(--buy-accent)", fontFamily: "'Inter', sans-serif", fontWeight: "600", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{selBottle.displayName}</div>
+                                        <div style={{ fontSize: "9px", color: "var(--text-dim)", fontFamily: "monospace" }}>{selBottle.typeName} · {selBottle.ageDisplay || `${selBottle.age}yr`} · {selBottle.proof}pf · Paid: ${(selBottle.purchasePrice ?? 0).toLocaleString()}</div>
                                       </div>
-                                      <div style={{ maxHeight: selectedSellBottle ? "120px" : "220px", overflowY: "auto", border: "1px solid var(--border)", borderRadius: "8px", background: "rgba(255,255,255,0.02)", transition: "max-height 0.3s" }}>
-                                        {sorted.map(b => {
-                                          const isSelected = selectedSellBottle === b.id;
-                                          const isMatch = hasPivoted ? true : currentCustomer.filter(b);
-                                          return (
-                                            <div key={b.id} onClick={() => { setSelectedSellBottle(b.id); setPlayerOffer(b.purchasePrice != null ? Math.round(b.purchasePrice * 1.5) : 50); }}
-                                              style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 10px", cursor: "pointer",
-                                                background: isSelected ? "rgba(59,130,246,0.15)" : "transparent",
-                                                borderBottom: "1px solid rgba(255,255,255,0.04)",
-                                                opacity: isMatch ? 1 : 0.45 }}>
-                                              <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ fontSize: "11px", color: isSelected ? "var(--buy-accent)" : "var(--text)", fontFamily: "'Inter', sans-serif", fontWeight: isSelected ? "600" : "400", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{b.displayName}</div>
-                                                <div style={{ fontSize: "9px", color: "var(--text-dim)", fontFamily: "monospace" }}>{b.typeName} · {b.ageDisplay || `${b.age}yr`} · {b.proof}pf</div>
-                                              </div>
-                                              <div style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "monospace", whiteSpace: "nowrap" }}>
-                                                ${(b.purchasePrice ?? 0).toLocaleString()}
-                                              </div>
-                                              {isMatch && <div style={{ width: "4px", height: "4px", borderRadius: "50%", background: "var(--buy-accent)", flexShrink: 0 }} />}
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
+                                      <button onClick={() => setShowBottlePicker(true)}
+                                        style={{ padding: "4px 10px", background: "transparent", border: "1px solid var(--buy-accent)", borderRadius: "6px", color: "var(--buy-accent)", fontSize: "9px", cursor: "pointer", fontFamily: "monospace", whiteSpace: "nowrap", flexShrink: 0 }}>
+                                        CHANGE
+                                      </button>
                                     </div>
                                   );
-                                })()}
+                                })() : (
+                                  <button onClick={() => setShowBottlePicker(true)}
+                                    style={{ width: "100%", maxWidth: "460px", padding: "12px 16px", background: "rgba(255,255,255,0.04)", border: "1px dashed var(--buy-accent)", borderRadius: "8px", color: "var(--buy-accent)", fontSize: "13px", cursor: "pointer", fontFamily: "monospace", fontWeight: "500" }}>
+                                    Select a Bottle to Offer
+                                  </button>
+                                )}
 
                                 {/* Price setting UI — only shows when bottle selected */}
                                 {selectedSellBottle && (() => {
@@ -4630,6 +4648,8 @@ function WhiskeyGame() {
                             })()}
                           </div>
                         )}
+                        </div>
+                        {/* === END BOTTOM SHEET === */}
                         </div>
                       </div>
                     ) : (
@@ -5060,7 +5080,7 @@ function WhiskeyGame() {
           </div>
 
           {/* Fixed Bottom Navigation Bar */}
-          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "linear-gradient(180deg, var(--bg2), var(--bg1))", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-around", alignItems: "center", padding: "4px 0 max(4px, env(safe-area-inset-bottom))", zIndex: 90 }}>
+          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "linear-gradient(180deg, var(--bg2), var(--bg1))", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-around", alignItems: "center", padding: "6px 0 max(6px, env(safe-area-inset-bottom))", zIndex: 90 }}>
             {[
               { id: "shop", icon: "🏪", label: "Shop" },
               { id: "codex", icon: "📖", label: "Codex" },
@@ -5069,13 +5089,77 @@ function WhiskeyGame() {
               { id: "inventory", icon: "📦", label: "Inventory" },
             ].map(tab => (
               <button key={tab.id} onClick={() => { setActiveTab(tab.id); audio.playSfx("buttonClick"); }}
-                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "1px", background: "none", border: "none", cursor: "pointer", padding: "4px 12px", minWidth: "52px",
+                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px", background: "none", border: "none", cursor: "pointer", padding: "6px 14px", minWidth: "56px",
                   color: activeTab === tab.id ? "var(--accent)" : "var(--text-dim)", transition: "color 0.2s" }}>
-                <span style={{ fontSize: "18px", lineHeight: 1 }}>{tab.icon}</span>
-                <span style={{ fontSize: "9px", fontFamily: "'Inter', sans-serif", fontWeight: activeTab === tab.id ? "600" : "400", letterSpacing: "0.3px" }}>{tab.label}</span>
+                <span style={{ fontSize: "20px", lineHeight: 1 }}>{tab.icon}</span>
+                <span style={{ fontSize: "10px", fontFamily: "'Inter', sans-serif", fontWeight: activeTab === tab.id ? "600" : "400", letterSpacing: "0.3px" }}>{tab.label}</span>
               </button>
             ))}
           </div>
+
+          {/* Bottle Picker Modal */}
+          {showBottlePicker && currentCustomer?.type === "buyer" && (() => {
+            const hasPivoted = currentCustomer.pivoted;
+            const matching = hasPivoted ? inventory : inventory.filter(currentCustomer.filter);
+            const nonMatching = hasPivoted ? [] : inventory.filter(b => !currentCustomer.filter(b));
+            const sorted = [...matching, ...nonMatching];
+            return (
+              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 100, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}
+                onClick={() => setShowBottlePicker(false)}>
+                <div style={{ background: `linear-gradient(180deg, var(--bg3), var(--bg2))`, borderRadius: "16px 16px 0 0", maxHeight: "70vh", display: "flex", flexDirection: "column", padding: "0 12px 12px",
+                  paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))" }}
+                  onClick={e => e.stopPropagation()}>
+                  {/* Handle */}
+                  <div style={{ display: "flex", justifyContent: "center", padding: "8px 0 6px" }}>
+                    <div style={{ width: "32px", height: "3px", background: "var(--border)", borderRadius: "2px" }} />
+                  </div>
+                  {/* Header */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", padding: "0 4px" }}>
+                    <div style={{ fontSize: "14px", color: "var(--buy-accent)", fontFamily: "'Playfair Display', Georgia, serif" }}>
+                      Select a Bottle
+                    </div>
+                    <div style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "monospace" }}>
+                      {hasPivoted ? "Open to anything" : `${matching.length} match${matching.length !== 1 ? "es" : ""}`} · {sorted.length} total
+                    </div>
+                  </div>
+                  {/* Bottle list */}
+                  <div style={{ flex: "1 1 auto", overflowY: "auto", border: "1px solid var(--border)", borderRadius: "8px", background: "rgba(255,255,255,0.02)", minHeight: 0 }}>
+                    {sorted.length === 0 ? (
+                      <div style={{ color: "#5a4a38", fontSize: "13px", padding: "20px", textAlign: "center" }}>Your shelves are empty.</div>
+                    ) : sorted.map(b => {
+                      const isSelected = selectedSellBottle === b.id;
+                      const isMatch = hasPivoted ? true : currentCustomer.filter(b);
+                      return (
+                        <div key={b.id} onClick={() => {
+                          setSelectedSellBottle(b.id);
+                          setPlayerOffer(b.purchasePrice != null ? Math.round(b.purchasePrice * 1.5) : 50);
+                          setShowBottlePicker(false);
+                        }}
+                          style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 12px", cursor: "pointer",
+                            background: isSelected ? "rgba(59,130,246,0.15)" : "transparent",
+                            borderBottom: "1px solid rgba(255,255,255,0.04)",
+                            opacity: isMatch ? 1 : 0.4 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: "13px", color: isSelected ? "var(--buy-accent)" : "var(--text)", fontFamily: "'Inter', sans-serif", fontWeight: isSelected ? "600" : "400", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{b.displayName}</div>
+                            <div style={{ fontSize: "10px", color: "var(--text-dim)", fontFamily: "monospace" }}>{b.typeName} · {b.ageDisplay || `${b.age}yr`} · {b.proof}pf</div>
+                          </div>
+                          <div style={{ textAlign: "right", flexShrink: 0 }}>
+                            <div style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "monospace" }}>${(b.purchasePrice ?? 0).toLocaleString()}</div>
+                          </div>
+                          {isMatch && <div style={{ width: "5px", height: "5px", borderRadius: "50%", background: "var(--buy-accent)", flexShrink: 0 }} />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Cancel */}
+                  <button onClick={() => setShowBottlePicker(false)}
+                    style={{ marginTop: "8px", padding: "10px", background: "transparent", border: "1px solid var(--text-dim)", borderRadius: "8px", color: "var(--text-dim)", fontSize: "12px", cursor: "pointer", fontFamily: "monospace", width: "100%" }}>
+                    CANCEL
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Tactics Modal Dialog */}
           {showTacticsMenu && (
