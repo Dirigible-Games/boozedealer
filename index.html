@@ -1154,26 +1154,11 @@ function BottleCard({ bottle, showRarity = false, onClick, yearEstimate = null, 
   const rarityDef = RARITIES.find(r => r.name === bottle.rarity);
   let borderStyle;
   let unicornGlowWrap = null;
-  let cardTransform = ""; // zoom + shake transform
+  let cardTransform = "";
   if (rarityRevealPhase === "breathe" && rarityRevealColor) {
-    // Decode: progress = intensity + dramaLevel * 10
     const rawProgress = rarityRevealProgress;
-    const dramaLevel = Math.floor(rawProgress / 10) / 10; // 0, 0.033, 0.066, 0.1 → scaled
-    const drama = Math.min(rawProgress >= 10 ? (rawProgress - Math.floor(rawProgress / 10) * 10) >= 0 ? Math.floor(rawProgress / 10) * 10 / 10 : 0 : 0, 1);
-    const p = rawProgress % 10; // intensity 0-1
-    // Simpler decode
-    const dramaRaw = Math.floor(rawProgress * 10) >= 10 ? rawProgress - (rawProgress % 1 < 1 ? 0 : 0) : 0;
-    // Let me just do this properly:
-    const intensityPart = rawProgress - Math.floor(rawProgress);
-    const dramaPart = Math.floor(rawProgress) / 10; // 0, 0.33, 0.66, 1.0
-    // But rawProgress is intensity + drama*10, so:
-    // if rawProgress = 0.85 + 0.33*10 = 3.85 → drama = floor(3.85)/10 won't work
-    // Actually: drama*10 is 0, 3.3, 6.6, 10 → floor gives 0,3,6,10
-    // intensity is the fractional-ish part but it can be > 1... 
-    // Let's use modulo: intensity = rawProgress % 2 if drama is encoded as multiples of 10
-    // rawProgress = intensity + dramaLevel * 10 where intensity is 0-1 and drama is 0,3.3,6.6,10
     const dramaDecoded = rawProgress >= 10 ? 1.0 : rawProgress >= 6 ? 0.66 : rawProgress >= 3 ? 0.33 : 0;
-    const intensityDecoded = rawProgress - dramaDecoded * 10;
+    const intensityDecoded = Math.max(0, Math.min(rawProgress - dramaDecoded * 10, 1));
 
     const hexToRgba = (hex, alpha) => {
       const r = parseInt(hex.slice(1, 3), 16) || 0;
@@ -1193,14 +1178,20 @@ function BottleCard({ bottle, showRarity = false, onClick, yearEstimate = null, 
 
     if (rarityRevealColor === "unicorn") {
       borderStyle = {
-        border: `3px solid rgba(236,72,153,${0.15 + intensityDecoded * 0.85})`,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+        borderWidth: "3px",
+        borderStyle: "solid",
+        borderImage: `linear-gradient(135deg, rgba(59,130,246,${0.2 + intensityDecoded * 0.8}), rgba(236,72,153,${0.2 + intensityDecoded * 0.8})) 1`,
+        boxShadow: intensityDecoded > 0.05 
+          ? `0 0 ${Math.round(20 * intensityDecoded)}px rgba(59,130,246,${intensityDecoded * 0.3}), 0 0 ${Math.round(20 * intensityDecoded)}px rgba(236,72,153,${intensityDecoded * 0.3}), inset 0 0 ${Math.round(15 * intensityDecoded)}px rgba(168,85,247,${intensityDecoded * 0.08})`
+          : "0 4px 12px rgba(0,0,0,0.4)",
       };
       unicornGlowWrap = {
-        background: `linear-gradient(135deg, rgba(59,130,246,${intensityDecoded * 0.6}), rgba(236,72,153,${intensityDecoded * 0.6}))`,
-        padding: `${Math.round(3 + intensityDecoded * 8)}px`,
+        background: `linear-gradient(135deg, rgba(59,130,246,${intensityDecoded * 0.5}), rgba(168,85,247,${intensityDecoded * 0.4}), rgba(236,72,153,${intensityDecoded * 0.5}))`,
+        padding: `${Math.round(3 + intensityDecoded * 10)}px`,
         borderRadius: "20px",
-        boxShadow: intensityDecoded > 0.05 ? `0 0 ${Math.round(35 * intensityDecoded)}px rgba(59,130,246,${intensityDecoded * 0.4}), 0 0 ${Math.round(35 * intensityDecoded)}px rgba(236,72,153,${intensityDecoded * 0.4})` : "none",
+        boxShadow: intensityDecoded > 0.05 
+          ? `0 0 ${Math.round(40 * intensityDecoded)}px rgba(59,130,246,${intensityDecoded * 0.35}), 0 0 ${Math.round(40 * intensityDecoded)}px rgba(236,72,153,${intensityDecoded * 0.35})`
+          : "none",
       };
     } else {
       const outerGlow = Math.round(30 * intensityDecoded);
@@ -1230,7 +1221,9 @@ function BottleCard({ bottle, showRarity = false, onClick, yearEstimate = null, 
   const hl = (field) => inspectHighlight?.field === field ? { boxShadow: inspectHighlight.success ? "0 0 12px rgba(34,197,94,0.7), inset 0 0 8px rgba(34,197,94,0.15)" : "0 0 12px rgba(239,68,68,0.7), inset 0 0 8px rgba(239,68,68,0.15)", borderRadius: "4px", transition: "box-shadow 0.2s", padding: "1px 3px", background: inspectHighlight.success ? "rgba(34,197,94,0.08)" : "rgba(239,68,68,0.08)" } : {};
   const cardEl = (
     <div onClick={onClick} style={{ ...borderStyle, borderRadius: "16px", background: `linear-gradient(145deg, var(--bg3), var(--bg2))`, padding: "16px", cursor: onClick ? "pointer" : "default", width: "280px", maxWidth: "90vw", flexShrink: 0,
-      transform: cardTransform || "none", zIndex: cardTransform ? 10 : "auto", position: "relative",
+      transform: unicornGlowWrap ? "none" : (cardTransform || "none"),
+      zIndex: (cardTransform && !unicornGlowWrap) ? 10 : "auto",
+      position: "relative",
     }}
       onMouseEnter={e => { if (!rarityRevealPhase) { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.6)"; } }}
       onMouseLeave={e => { if (!rarityRevealPhase) { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = ""; } }}>
